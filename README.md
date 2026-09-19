@@ -1,5 +1,7 @@
 # Windows iOS Universal Clipboard
 
+[English](README.md) · [Türkçe](README.tr.md) · [Español](README.es.md) · [简体中文](README.zh-CN.md) · [हिन्दी](README.hi.md) · [العربية](README.ar.md) · [Português](README.pt-BR.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [日本語](README.ja.md)
+
 **Copy on iPhone. Paste on Windows.**
 
 A small local-network clipboard bridge that gives iPhone + Windows a Universal Clipboard-style workflow.
