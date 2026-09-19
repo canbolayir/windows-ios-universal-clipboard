@@ -5,12 +5,6 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>WindowsIOSUniversalClipboard</AssemblyName>
-    <RootNamespace>WindowsIOSUniversalClipboard</RootNamespace>
-    <Version>1.0.0</Version>
-    <PublishSingleFile>true</PublishSingleFile>
-    <SelfContained>true</SelfContained>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <DebugType>embedded</DebugType>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
   </PropertyGroup>
 </Project>

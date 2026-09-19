@@ -1,250 +1,441 @@
-﻿using System.Net;
+using System.Buffers.Binary;
+using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Windows.Forms;
 
 const int Port = 8765;
-const string AppName = "Windows iOS Universal Clipboard";
+const int MdnsPort = 5353;
+const string MdnsName = "copybridge.local";
 
-var createdNew = false;
-using var mutex = new Mutex(true, @"Local\WindowsIOSUniversalClipboard", out createdNew);
-if (!createdNew)
-{
-    TryOpenSetup();
-    return;
-}
-
-var appData = Path.Combine(
+var dataDir = Path.Combine(
     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
     "WindowsIOSUniversalClipboard");
-Directory.CreateDirectory(appData);
+Directory.CreateDirectory(dataDir);
 
-var configPath = Path.Combine(appData, "config.json");
-var logPath = Path.Combine(appData, "bridge.log");
+var configPath = Path.Combine(dataDir, "config.json");
+var logPath = Path.Combine(dataDir, "app.log");
+var configLock = new object();
+var approvalGate = new SemaphoreSlim(1, 1);
+var config = LoadConfig(configPath);
+var mdnsState = "starting";
 
-var config = LoadOrCreateConfig(configPath);
-
-var builder = WebApplication.CreateBuilder(args);
-builder.WebHost.UseUrls($"http://0.0.0.0:{Port}");
-builder.WebHost.ConfigureKestrel(options =>
-{
-    options.Limits.MaxRequestBodySize = 1 * 1024 * 1024;
-});
-var app = builder.Build();
-
-app.MapGet("/health", () => Results.Ok(new
-{
-    ok = true,
-    app = AppName,
-    version = typeof(Program).Assembly.GetName().Version?.ToString() ?? "unknown"
-}));
-
-app.MapGet("/setup", (HttpContext context) =>
-{
-    if (!IsLoopback(context.Connection.RemoteIpAddress))
-        return Results.NotFound();
-
-    var hostnameEndpoint = $"http://{Environment.MachineName}.local:{Port}/copy";
-    var ip = GetLanIpv4();
-    var ipEndpoint = ip is null ? null : $"http://{ip}:{Port}/copy";
-
-    return Results.Content(
-        BuildSetupHtml(hostnameEndpoint, ipEndpoint, config.Token),
-        "text/html; charset=utf-8");
-});
-
-app.MapGet("/setup.json", (HttpContext context) =>
-{
-    if (!IsLoopback(context.Connection.RemoteIpAddress))
-        return Results.NotFound();
-
-    var ip = GetLanIpv4();
-    return Results.Ok(new
-    {
-        endpoint = $"http://{Environment.MachineName}.local:{Port}/copy",
-        fallbackEndpoint = ip is null ? null : $"http://{ip}:{Port}/copy",
-        token = config.Token
-    });
-});
-
-app.MapPost("/copy", async (HttpRequest request) =>
-{
-    if (!Authorized(request, config.Token))
-        return Results.Unauthorized();
-
-    CopyRequest? payload;
-    try
-    {
-        payload = await request.ReadFromJsonAsync<CopyRequest>();
-    }
-    catch
-    {
-        return Results.BadRequest(new { error = "Invalid JSON." });
-    }
-
-    if (payload?.Text is null)
-        return Results.BadRequest(new { error = "Missing text." });
-
-    if (payload.Text.Length > 1_000_000)
-        return Results.BadRequest(new { error = "Text is too large." });
-
-    var error = SetClipboardText(payload.Text);
-    if (error is not null)
-    {
-        SafeLog($"clipboard_error {error.GetType().Name}: {error.Message}");
-        return Results.Problem("Could not write to the Windows clipboard.");
-    }
-
-    SafeLog($"copied chars={payload.Text.Length}");
-    return Results.Ok(new { ok = true });
-});
-
-SafeLog($"started host={Environment.MachineName} port={Port}");
-app.Run();
-
-bool Authorized(HttpRequest request, string token)
-{
-    if (!request.Headers.TryGetValue("X-Clipboard-Token", out var supplied))
-        return false;
-
-    var suppliedBytes = Encoding.UTF8.GetBytes(supplied.ToString());
-    var tokenBytes = Encoding.UTF8.GetBytes(token);
-
-    return suppliedBytes.Length == tokenBytes.Length &&
-           CryptographicOperations.FixedTimeEquals(suppliedBytes, tokenBytes);
-}
-
-Exception? SetClipboardText(string text)
-{
-    Exception? lastError = null;
-
-    using var finished = new ManualResetEventSlim(false);
-    var thread = new Thread(() =>
-    {
-        try
-        {
-            for (var attempt = 0; attempt < 8; attempt++)
-            {
-                try
-                {
-                    Clipboard.SetText(text);
-                    lastError = null;
-                    return;
-                }
-                catch (Exception ex)
-                {
-                    lastError = ex;
-                    Thread.Sleep(75);
-                }
-            }
-        }
-        finally
-        {
-            finished.Set();
-        }
-    });
-
-    thread.SetApartmentState(ApartmentState.STA);
-    thread.Start();
-
-    if (!finished.Wait(TimeSpan.FromSeconds(5)))
-        return new TimeoutException("Clipboard operation timed out.");
-
-    return lastError;
-}
-
-BridgeConfig LoadOrCreateConfig(string path)
-{
-    try
-    {
-        if (File.Exists(path))
-        {
-            var existing = JsonSerializer.Deserialize<BridgeConfig>(File.ReadAllText(path));
-            if (existing is not null && existing.Token.Length >= 32)
-                return existing;
-        }
-    }
-    catch
-    {
-        // Regenerate a safe local config if the file is unreadable.
-    }
-
-    var newConfig = new BridgeConfig(Convert.ToHexString(RandomNumberGenerator.GetBytes(24)).ToLowerInvariant());
-    File.WriteAllText(path, JsonSerializer.Serialize(newConfig, new JsonSerializerOptions { WriteIndented = true }));
-    return newConfig;
-}
-
-bool IsLoopback(IPAddress? address)
-{
-    if (address is null)
-        return false;
-
-    if (IPAddress.IsLoopback(address))
-        return true;
-
-    return address.IsIPv4MappedToIPv6 && IPAddress.IsLoopback(address.MapToIPv4());
-}
-
-string? GetLanIpv4()
-{
-    try
-    {
-        return NetworkInterface.GetAllNetworkInterfaces()
-            .Where(nic => nic.OperationalStatus == OperationalStatus.Up &&
-                          nic.NetworkInterfaceType != NetworkInterfaceType.Loopback)
-            .SelectMany(nic => nic.GetIPProperties().UnicastAddresses)
-            .Select(x => x.Address)
-            .FirstOrDefault(ip =>
-                ip.AddressFamily == AddressFamily.InterNetwork &&
-                !IPAddress.IsLoopback(ip) &&
-                !ip.ToString().StartsWith("169.254.", StringComparison.Ordinal))
-            ?.ToString();
-    }
-    catch
-    {
-        return null;
-    }
-}
-
-void SafeLog(string message)
+void Log(string message)
 {
     try
     {
         File.AppendAllText(
             logPath,
-            $"{DateTimeOffset.Now:O} {message}{Environment.NewLine}");
+            $"{DateTimeOffset.Now:O} {message}{Environment.NewLine}",
+            Encoding.UTF8);
     }
-    catch
-    {
-        // Logging must never stop clipboard sync.
-    }
+    catch { }
 }
 
-void TryOpenSetup()
+AppConfig LoadConfig(string path)
 {
     try
     {
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+        if (File.Exists(path))
         {
-            FileName = $"http://127.0.0.1:{Port}/setup",
-            UseShellExecute = true
-        });
+            var loaded = JsonSerializer.Deserialize<AppConfig>(File.ReadAllText(path));
+            if (loaded is not null)
+                return loaded;
+        }
     }
-    catch
+    catch (Exception ex)
     {
+        Log($"Config load failed: {ex.Message}");
+    }
+
+    return new AppConfig();
+}
+
+void SaveConfig()
+{
+    lock (configLock)
+    {
+        var json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(configPath, json, Encoding.UTF8);
     }
 }
 
-string BuildSetupHtml(string endpoint, string? fallbackEndpoint, string token)
-{
-    var endpointHtml = WebUtility.HtmlEncode(endpoint);
-    var fallbackHtml = fallbackEndpoint is null ? "" : WebUtility.HtmlEncode(fallbackEndpoint);
-    var tokenHtml = WebUtility.HtmlEncode(token);
+IPAddress NormalizeIp(IPAddress address) =>
+    address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address;
 
-    return $$"""
+bool IsApproved(string ip)
+{
+    lock (configLock)
+        return config.ApprovedDevices.Contains(ip, StringComparer.OrdinalIgnoreCase);
+}
+
+async Task<bool> PromptApprovalAsync(string ip)
+{
+    var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    var thread = new Thread(() =>
+    {
+        try
+        {
+            var result = MessageBox.Show(
+                $"A device at {ip} wants to send copied text to this PC.\n\n" +
+                "Only allow devices you recognize on a trusted local network.\n\n" +
+                "Allow this device?",
+                "Windows iOS Universal Clipboard",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question,
+                MessageBoxDefaultButton.Button2);
+
+            tcs.TrySetResult(result == DialogResult.Yes);
+        }
+        catch (Exception ex)
+        {
+            Log($"Approval dialog failed: {ex.Message}");
+            tcs.TrySetResult(false);
+        }
+    });
+
+    thread.IsBackground = true;
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+
+    return await tcs.Task;
+}
+
+async Task<bool> EnsureApprovedAsync(IPAddress? remoteAddress)
+{
+    if (remoteAddress is null)
+        return false;
+
+    var remote = NormalizeIp(remoteAddress);
+    if (IPAddress.IsLoopback(remote))
+        return true;
+
+    var ip = remote.ToString();
+    if (IsApproved(ip))
+        return true;
+
+    await approvalGate.WaitAsync();
+    try
+    {
+        if (IsApproved(ip))
+            return true;
+
+        Log($"Pairing request from {ip}");
+        var allowed = await PromptApprovalAsync(ip);
+
+        if (allowed)
+        {
+            lock (configLock)
+                config.ApprovedDevices.Add(ip);
+
+            SaveConfig();
+            Log($"Approved {ip}");
+        }
+        else
+        {
+            Log($"Denied {ip}");
+        }
+
+        return allowed;
+    }
+    finally
+    {
+        approvalGate.Release();
+    }
+}
+
+IResult SetClipboardText(string text)
+{
+    Exception? error = null;
+    using var done = new ManualResetEventSlim(false);
+
+    var thread = new Thread(() =>
+    {
+        try
+        {
+            for (var i = 0; i < 5; i++)
+            {
+                try
+                {
+                    Clipboard.SetText(text);
+                    error = null;
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    error = ex;
+                    Thread.Sleep(80);
+                }
+            }
+        }
+        finally
+        {
+            done.Set();
+        }
+    });
+
+    thread.IsBackground = true;
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+
+    if (!done.Wait(TimeSpan.FromSeconds(5)))
+        return Results.Problem("Clipboard timeout.");
+
+    return error is null
+        ? Results.Ok(new { ok = true })
+        : Results.Problem(error.Message);
+}
+
+IEnumerable<(IPAddress Address, IPAddress Mask)> GetLocalIpv4()
+{
+    foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
+    {
+        if (nic.OperationalStatus != OperationalStatus.Up)
+            continue;
+
+        if (nic.NetworkInterfaceType is NetworkInterfaceType.Loopback or NetworkInterfaceType.Tunnel)
+            continue;
+
+        IPInterfaceProperties properties;
+        try { properties = nic.GetIPProperties(); }
+        catch { continue; }
+
+        foreach (var unicast in properties.UnicastAddresses)
+        {
+            if (unicast.Address.AddressFamily != AddressFamily.InterNetwork)
+                continue;
+
+            if (IPAddress.IsLoopback(unicast.Address))
+                continue;
+
+            var bytes = unicast.Address.GetAddressBytes();
+            if (bytes[0] == 169 && bytes[1] == 254)
+                continue;
+
+            if (unicast.IPv4Mask is null)
+                continue;
+
+            yield return (unicast.Address, unicast.IPv4Mask);
+        }
+    }
+}
+
+bool SameSubnet(IPAddress left, IPAddress right, IPAddress mask)
+{
+    var a = left.GetAddressBytes();
+    var b = right.GetAddressBytes();
+    var m = mask.GetAddressBytes();
+
+    if (a.Length != 4 || b.Length != 4 || m.Length != 4)
+        return false;
+
+    for (var i = 0; i < 4; i++)
+        if ((a[i] & m[i]) != (b[i] & m[i]))
+            return false;
+
+    return true;
+}
+
+IPAddress? PickAddressFor(IPAddress remote)
+{
+    remote = NormalizeIp(remote);
+    var candidates = GetLocalIpv4().ToList();
+
+    foreach (var item in candidates)
+        if (SameSubnet(item.Address, remote, item.Mask))
+            return item.Address;
+
+    return candidates.FirstOrDefault().Address;
+}
+
+string ReadDnsName(ReadOnlySpan<byte> packet, ref int offset)
+{
+    var labels = new List<string>();
+    var originalOffset = -1;
+    var guard = 0;
+
+    while (offset < packet.Length && guard++ < 32)
+    {
+        var length = packet[offset++];
+
+        if (length == 0)
+            break;
+
+        if ((length & 0xC0) == 0xC0)
+        {
+            if (offset >= packet.Length)
+                break;
+
+            var pointer = ((length & 0x3F) << 8) | packet[offset++];
+            if (pointer >= packet.Length)
+                break;
+
+            if (originalOffset < 0)
+                originalOffset = offset;
+
+            offset = pointer;
+            continue;
+        }
+
+        if (offset + length > packet.Length)
+            break;
+
+        labels.Add(Encoding.ASCII.GetString(packet.Slice(offset, length)));
+        offset += length;
+    }
+
+    if (originalOffset >= 0)
+        offset = originalOffset;
+
+    return string.Join('.', labels);
+}
+
+byte[] EncodeDnsName(string name)
+{
+    using var ms = new MemoryStream();
+
+    foreach (var label in name.Split('.', StringSplitOptions.RemoveEmptyEntries))
+    {
+        var bytes = Encoding.ASCII.GetBytes(label);
+        ms.WriteByte((byte)bytes.Length);
+        ms.Write(bytes);
+    }
+
+    ms.WriteByte(0);
+    return ms.ToArray();
+}
+
+byte[] BuildMdnsResponse(ReadOnlySpan<byte> query, IPAddress address)
+{
+    var name = EncodeDnsName(MdnsName);
+    var result = new byte[12 + name.Length + 10 + 4];
+
+    if (query.Length >= 2)
+    {
+        result[0] = query[0];
+        result[1] = query[1];
+    }
+
+    BinaryPrimitives.WriteUInt16BigEndian(result.AsSpan(2, 2), 0x8400); // response + authoritative
+    BinaryPrimitives.WriteUInt16BigEndian(result.AsSpan(6, 2), 1);      // one answer
+
+    var offset = 12;
+    name.CopyTo(result.AsSpan(offset));
+    offset += name.Length;
+
+    BinaryPrimitives.WriteUInt16BigEndian(result.AsSpan(offset, 2), 1);       // A
+    BinaryPrimitives.WriteUInt16BigEndian(result.AsSpan(offset + 2, 2), 0x8001); // IN + cache flush
+    BinaryPrimitives.WriteUInt32BigEndian(result.AsSpan(offset + 4, 4), 120); // TTL
+    BinaryPrimitives.WriteUInt16BigEndian(result.AsSpan(offset + 8, 2), 4);
+    address.GetAddressBytes().CopyTo(result.AsSpan(offset + 10, 4));
+
+    return result;
+}
+
+bool QueryRequestsCopyBridge(ReadOnlySpan<byte> packet)
+{
+    if (packet.Length < 12)
+        return false;
+
+    var questionCount = BinaryPrimitives.ReadUInt16BigEndian(packet.Slice(4, 2));
+    var offset = 12;
+
+    for (var i = 0; i < questionCount; i++)
+    {
+        var name = ReadDnsName(packet, ref offset);
+        if (offset + 4 > packet.Length)
+            return false;
+
+        var type = BinaryPrimitives.ReadUInt16BigEndian(packet.Slice(offset, 2));
+        offset += 4; // type + class
+
+        if (name.Equals(MdnsName, StringComparison.OrdinalIgnoreCase) &&
+            (type == 1 || type == 255))
+            return true;
+    }
+
+    return false;
+}
+
+async Task RunMdnsResponderAsync(CancellationToken cancellationToken)
+{
+    try
+    {
+        using var udp = new UdpClient(AddressFamily.InterNetwork);
+        udp.Client.ExclusiveAddressUse = false;
+        udp.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+        udp.Client.Bind(new IPEndPoint(IPAddress.Any, MdnsPort));
+        udp.JoinMulticastGroup(IPAddress.Parse("224.0.0.251"));
+
+        mdnsState = "running";
+        Log($"{MdnsName} mDNS responder running.");
+
+        var multicast = new IPEndPoint(IPAddress.Parse("224.0.0.251"), MdnsPort);
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            UdpReceiveResult received;
+            try
+            {
+                received = await udp.ReceiveAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+
+            if (!QueryRequestsCopyBridge(received.Buffer))
+                continue;
+
+            var localAddress = PickAddressFor(received.RemoteEndPoint.Address);
+            if (localAddress is null)
+                continue;
+
+            var response = BuildMdnsResponse(received.Buffer, localAddress);
+
+            try
+            {
+                await udp.SendAsync(response, multicast, cancellationToken);
+                await udp.SendAsync(response, received.RemoteEndPoint, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                Log($"mDNS send failed: {ex.Message}");
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        mdnsState = "failed";
+        Log($"mDNS responder failed: {ex}");
+    }
+}
+
+var builder = WebApplication.CreateBuilder(args);
+builder.WebHost.UseUrls($"http://0.0.0.0:{Port}");
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 2 * 1024 * 1024;
+});
+
+var app = builder.Build();
+
+_ = Task.Run(() => RunMdnsResponderAsync(app.Lifetime.ApplicationStopping));
+
+app.MapGet("/health", () => Results.Ok(new
+{
+    ok = true,
+    hostname = MdnsName,
+    mdns = mdnsState,
+    approvedDevices = config.ApprovedDevices.Count
+}));
+
+app.MapGet("/setup", () =>
+{
+    const string html = """
 <!doctype html>
 <html lang="en">
 <head>
@@ -252,61 +443,56 @@ string BuildSetupHtml(string endpoint, string? fallbackEndpoint, string token)
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Windows iOS Universal Clipboard</title>
 <style>
-:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#111;background:#f7f7f8}
-body{max-width:760px;margin:0 auto;padding:48px 20px 80px}
-.card{background:#fff;border:1px solid #e4e4e7;border-radius:18px;padding:24px;margin-top:18px;box-shadow:0 8px 30px rgba(0,0,0,.04)}
-h1{font-size:32px;letter-spacing:-.03em;margin:0 0 8px}
-h2{font-size:19px;margin:0 0 12px}
-p{line-height:1.55;color:#52525b}
-code{display:block;overflow-wrap:anywhere;background:#f4f4f5;border-radius:10px;padding:12px;font-size:13px}
-button{border:0;border-radius:10px;padding:10px 14px;font-weight:650;cursor:pointer;margin-top:10px}
-.primary{background:#111;color:#fff}
-.secondary{background:#e4e4e7;color:#111}
-ol{padding-left:22px;line-height:1.7}
-.ok{display:inline-block;background:#dcfce7;color:#166534;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:700}
-small{color:#71717a}
+body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:760px;margin:60px auto;padding:0 24px;line-height:1.55;color:#111}
+code{background:#f2f2f2;padding:3px 7px;border-radius:6px}
+.card{border:1px solid #ddd;border-radius:14px;padding:22px;margin:20px 0}
+h1{line-height:1.1}
+.ok{font-weight:700}
 </style>
 </head>
 <body>
-<span class="ok">Bridge is running</span>
 <h1>Windows iOS Universal Clipboard</h1>
-<p>Copy text on your iPhone, trigger the Shortcut, then paste on Windows with Ctrl+V. Everything stays on your local network.</p>
-
+<p class="ok">Windows is ready.</p>
 <div class="card">
-<h2>1. Shortcut endpoint</h2>
-<code id="endpoint">{{endpointHtml}}</code>
-<button class="primary" onclick="copyText('endpoint',this)">Copy endpoint</button>
-{{(fallbackEndpoint is null ? "" : $"""<p><small>If the .local address does not work, use this LAN address instead:</small></p><code id="fallback">{fallbackHtml}</code><button class="secondary" onclick="copyText('fallback',this)">Copy fallback endpoint</button>""")}}
+<strong>iPhone Shortcut URL</strong><br>
+<code>http://copybridge.local:8765/copy</code>
 </div>
-
-<div class="card">
-<h2>2. Access token</h2>
-<code id="token">{{tokenHtml}}</code>
-<button class="primary" onclick="copyText('token',this)">Copy token</button>
-<p><small>Keep this token private. It only authorizes devices on your local network to write text to your Windows clipboard.</small></p>
-</div>
-
-<div class="card">
-<h2>3. iPhone Shortcut</h2>
-<ol>
-<li>Add the shared <strong>Windows â†’ iOS Universal Clipboard</strong> Shortcut.</li>
-<li>When iOS asks the import questions, paste the endpoint and token shown above.</li>
-<li>Assign the Shortcut to <strong>Settings â†’ Accessibility â†’ Touch â†’ Back Tap</strong>.</li>
-<li>Copy text on iPhone â†’ Back Tap â†’ Ctrl+V on Windows.</li>
-</ol>
-</div>
-
-<script>
-async function copyText(id,button){
-  await navigator.clipboard.writeText(document.getElementById(id).innerText);
-  const old=button.innerText; button.innerText='Copied'; setTimeout(()=>button.innerText=old,1200);
-}
-</script>
+<p>Add the shared iPhone Shortcut, copy any text, then run the Shortcut (or assign it to Back Tap).</p>
+<p>The first time an iPhone connects, Windows will ask whether you want to allow that device. Approve it once; after that, Copy → Back Tap → Ctrl+V.</p>
+<p><small>Designed for trusted local networks. Clipboard text is sent over your LAN, not through a cloud service.</small></p>
 </body>
 </html>
 """;
+    return Results.Content(html, "text/html; charset=utf-8");
+});
+
+app.MapPost("/copy", async (HttpRequest request) =>
+{
+    CopyRequest? body;
+
+    try
+    {
+        body = await request.ReadFromJsonAsync<CopyRequest>();
+    }
+    catch
+    {
+        return Results.BadRequest(new { ok = false, error = "Invalid JSON body." });
+    }
+
+    if (body?.Text is null || body.Text.Length > 1_000_000)
+        return Results.BadRequest(new { ok = false, error = "Invalid text." });
+
+    if (!await EnsureApprovedAsync(request.HttpContext.Connection.RemoteIpAddress))
+        return Results.StatusCode(StatusCodes.Status403Forbidden);
+
+    return SetClipboardText(body.Text);
+});
+
+app.Run();
+
+sealed class AppConfig
+{
+    public List<string> ApprovedDevices { get; set; } = new();
 }
 
-record BridgeConfig(string Token);
-record CopyRequest(string Text);
-
+sealed record CopyRequest(string Text);

@@ -1,50 +1,20 @@
 # iPhone Shortcut
 
-The Windows bridge accepts text using a very small HTTP request.
+The public Shortcut requires **zero configuration**.
 
-Create a Shortcut named **Windows Clipboard** with these actions:
+Actions, top to bottom:
 
 1. **Get Clipboard**
 2. **Get Contents of URL**
+   - URL: `http://copybridge.local:8765/copy`
+   - Method: `POST`
+   - Request Body: `JSON`
+   - `text` = Clipboard
 
-Configure **Get Contents of URL**:
+Do not add an authentication header.
 
-- URL: your Windows setup page's **Endpoint**
-- Method: `POST`
-- Header:
-  - `X-Clipboard-Token` = your Windows setup page's **Token**
-- Request Body: `JSON`
-  - key: `text`
-  - value: **Clipboard**
+On first use, Windows displays an approval dialog for the iPhone's current local IP. After approval, future clipboard sends from that IP are accepted automatically.
 
-## Before publishing the shared Shortcut
+Recommended trigger:
 
-The project owner should add two **Import Questions** so the same iCloud Shortcut works for everyone:
-
-### Import Question 1
-
-Attach it to the URL field in **Get Contents of URL**.
-
-Question:
-
-```text
-Paste the Endpoint shown by the Windows setup page
-```
-
-### Import Question 2
-
-Attach it to the value of the `X-Clipboard-Token` header.
-
-Question:
-
-```text
-Paste the Token shown by the Windows setup page
-```
-
-Then share the Shortcut using **Copy iCloud Link** and place the resulting link in the repository README.
-
-Apple's Import Questions replace those fields with each user's own values when they add the shared Shortcut, so the repository never needs to contain a user's hostname or token.
-
-## Recommended trigger
-
-**Settings → Accessibility → Touch → Back Tap → Double Tap → Windows Clipboard**
+**Settings → Accessibility → Touch → Back Tap → Double Tap → the Shortcut**

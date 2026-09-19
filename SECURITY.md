@@ -1,19 +1,21 @@
 # Security
 
-## Supported version
+Windows iOS Universal Clipboard is designed for **trusted local networks**.
 
-Only the latest release is supported.
+## Trust model
 
-## Design
+- Clipboard submissions are accepted only from the local network path that can reach the Windows listener.
+- An unknown source IP is not trusted automatically.
+- Windows displays an explicit **Allow / Deny** dialog on first contact.
+- Approved IP addresses are stored locally.
+- There is no cloud relay and no project-operated server.
 
-The bridge listens on TCP port `8765` and accepts clipboard writes only when the request includes the locally generated `X-Clipboard-Token`.
+## Important limitation
 
-The installer creates an inbound Windows Firewall rule for the **Private** network profile only.
+Clipboard text is sent over plain HTTP on the LAN. It is not end-to-end encrypted.
 
-The setup page (`/setup`) and configuration endpoint (`/setup.json`) are restricted to localhost.
+Do not use this project on hostile or untrusted networks if the clipboard may contain sensitive information.
 
-Do not forward port `8765` from a router and do not expose it to the public internet.
+## Reporting a security issue
 
-## Reporting a vulnerability
-
-Please open a GitHub Security Advisory for this repository rather than publishing a sensitive issue.
+Please use GitHub's private vulnerability reporting feature for this repository rather than opening a public issue.

@@ -1,103 +1,106 @@
 # Windows iOS Universal Clipboard
 
-Copy text on your iPhone. Paste it on Windows.
+**Copy on iPhone. Paste on Windows.**
 
-A small, local-network bridge that brings a Universal Clipboard-style workflow to **iPhone + Windows**.
+A tiny local-network clipboard bridge for iPhone and Windows.
 
-> Unofficial project. Not affiliated with Apple or Microsoft. “Universal Clipboard” is used descriptively.
+- No account
+- No cloud relay
+- No hostname setup
+- No token to copy
+- One-time Windows approval
+- Works with iPhone Back Tap
+- Starts automatically with Windows
 
-## How it works
-
-1. Copy text on your iPhone.
-2. Trigger the iPhone Shortcut (Back Tap works well).
-3. Press **Ctrl+V** on Windows.
-
-No account. No cloud clipboard. Clipboard text is sent directly from the iPhone to your PC over your local network.
+> Not affiliated with Apple. "Universal Clipboard" is used descriptively.
 
 ## Install on Windows
 
-Open **PowerShell** and run:
+Open PowerShell and run:
 
 ```powershell
 irm https://raw.githubusercontent.com/canbolayir/windows-ios-universal-clipboard/main/install.ps1 | iex
 ```
 
-Accept the Windows UAC prompt once.
+Accept the Windows UAC prompt. The installer downloads the latest self-contained release, adds Private-network firewall rules, starts the app, and configures automatic startup.
 
-The installer will:
+No .NET installation is required.
 
-- download the latest self-contained Windows build
-- install it under your user profile
-- generate a random local access token
-- add a **Private network only** firewall rule
-- start the bridge automatically when you sign in
-- install Apple Bonjour through `winget` when available, for a stable `PC-NAME.local` address
-- open a local setup page containing your Shortcut endpoint and token
+## Install on iPhone
 
-The app does **not** need the .NET runtime installed separately.
+Add the shared Shortcut from the link below:
 
-## Add the iPhone Shortcut
+**Shortcut link: coming next**
 
-The public iCloud Shortcut link will be added here after the shared Shortcut is published.
-
-For now, see [docs/SHORTCUT.md](docs/SHORTCUT.md).
-
-The shared Shortcut is designed to use two Apple Shortcuts **Import Questions**:
-
-1. **Endpoint** — shown by the Windows setup page
-2. **Token** — shown by the Windows setup page
-
-That means every user can install the same iCloud Shortcut and enter their own PC details during setup.
-
-## Back Tap
-
-On iPhone:
-
-**Settings → Accessibility → Touch → Back Tap → Double Tap → Windows Clipboard**
-
-Then:
-
-**Copy on iPhone → Double Tap the back of the iPhone → Ctrl+V on Windows**
-
-## Reopen the setup page
-
-Open:
+The Shortcut is the same for every user. It sends copied text to:
 
 ```text
-http://127.0.0.1:8765/setup
+http://copybridge.local:8765/copy
 ```
 
-on the Windows PC.
+There is no per-user hostname or token.
+
+### First use
+
+1. Make sure the iPhone and Windows PC are on the same local network.
+2. Copy text on the iPhone.
+3. Run the Shortcut.
+4. Windows asks whether to allow that device.
+5. Click **Yes** once.
+6. Paste anywhere on Windows with `Ctrl+V`.
+
+For a macOS-like gesture, assign the Shortcut to:
+
+**Settings → Accessibility → Touch → Back Tap**
+
+Then the normal flow is:
+
+**Copy on iPhone → Back Tap → Ctrl+V on Windows**
+
+## How it works
+
+The Windows app:
+
+- listens only for clipboard submissions on TCP `8765`;
+- announces `copybridge.local` over local mDNS;
+- prompts on Windows before trusting an unknown local IP;
+- remembers approved local IPs;
+- writes accepted text into the Windows clipboard.
+
+The iPhone Shortcut sends a small JSON request:
+
+```json
+{
+  "text": "the current iPhone clipboard text"
+}
+```
 
 ## Privacy and security
 
-- Text is transferred directly over the local network.
-- There is no hosted clipboard service and no account.
-- Incoming clipboard writes require a randomly generated token.
-- The Windows firewall rule is limited to the **Private** network profile.
-- The setup page and token are only exposed to localhost.
-- The token is stored in `%LOCALAPPDATA%\WindowsIOSUniversalClipboard\config.json`.
+Clipboard text is transferred directly over the local network using HTTP. It is **not encrypted** and is not sent through this project or a cloud service.
 
-Do not expose port `8765` to the public internet.
+Use it on networks you trust. Unknown local IPs require an explicit Windows approval before they can write to the clipboard.
+
+Approved devices are stored locally in:
+
+```text
+%LOCALAPPDATA%\WindowsIOSUniversalClipboard\config.json
+```
 
 ## Uninstall
 
-Download `uninstall.ps1` from this repository and run it in PowerShell.
+```powershell
+irm https://raw.githubusercontent.com/canbolayir/windows-ios-universal-clipboard/main/uninstall.ps1 | iex
+```
 
-The uninstaller deliberately leaves Apple Bonjour installed because other applications may depend on it.
+## Build
 
-## Build from source
-
-Requirements: .NET 10 SDK.
+Requires the .NET 10 SDK on Windows:
 
 ```powershell
-dotnet publish .\src\WindowsIOSUniversalClipboard\WindowsIOSUniversalClipboard.csproj `
-  -c Release `
-  -r win-x64 `
-  --self-contained true `
-  -p:PublishSingleFile=true
+dotnet build .\src\WindowsIOSUniversalClipboard\WindowsIOSUniversalClipboard.csproj
 ```
 
 ## License
 
-MIT
+MIT.
