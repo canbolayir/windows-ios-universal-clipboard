@@ -1,129 +1,89 @@
+<div align="center">
+
 # Windows iOS Universal Clipboard
+
+### iPhoneでコピー。Windowsでペースト。
+
+iPhone から Windows へのテキストコピーを Universal Clipboard のように使える小さくシンプルなブリッジです。
 
 [English](README.md) · [Türkçe](README.tr.md) · [Español](README.es.md) · [简体中文](README.zh-CN.md) · [हिन्दी](README.hi.md) · [العربية](README.ar.md) · [Português](README.pt-BR.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [日本語](README.ja.md)
 
-**iPhone でコピー。Windows でペースト。**
+</div>
 
-iPhone + Windows 間で Universal Clipboard のような操作感を実現する、小さなローカルネットワーク用クリップボードブリッジです。
+---
 
-> 非公式プロジェクトです。Apple または Microsoft とは関係ありません。「Universal Clipboard」は説明目的で使用しています。
+## 🎬 セットアップ動画
 
-## インストール
+[画像をクリックするとセットアップ動画を見られます。](docs/setup.mp4)
 
-PowerShell を開いて実行します：
+[![Setup video](docs/setup-cover.jpg)](docs/setup.mp4)
+
+---
+
+## 1. インストール
+
+Windows で **PowerShell** を開き、次を実行します：
 
 ```powershell
 irm https://raw.githubusercontent.com/canbolayir/windows-ios-universal-clipboard/main/install.ps1 | iex
 ```
 
-インストーラーは自動で次を行います：
+## 2. iPhoneを設定
 
-1. Windows ブリッジのインストールと設定；
-2. 必要に応じて Apple Bonjour をインストール；
-3. ファイアウォールをローカルサブネットのみに制限；
-4. Windows サインイン後のバックグラウンド自動起動を有効化；
-5. iPhone ショートカットのリンクを表示；
-6. 最初のショートカット要求を待ち、その iPhone を自動ペアリング。
+**[iPhoneショートカットを追加](https://www.icloud.com/shortcuts/e870980e381e4675a27af38c91db1265)**
 
-IP アドレス、PC 名、token は不要です。
+1. 下のショートカットリンクを iPhone で開きます。
+2. **Get Shortcut** をタップします。
+3. **Add Shortcut** をタップします。
+4. 追加されたショートカットを開きます。
+5. 右下の **▶** ボタンを1回タップします。
+6. iPhone が許可を求めたら **Always Allow** を選びます。
 
-共有ショートカット：
+> 作業中は PowerShell を開いたままにしてください。iPhone は自動で検出・ペアリングされます。
 
-**[Windows iOS Universal Clipboard を追加](https://www.icloud.com/shortcuts/e870980e381e4675a27af38c91db1265)**
+## 3. 背面ダブルタップを設定
 
-インストール中、iPhone で次の操作を行います：
+1. iPhone の **設定** を開きます。
+2. **アクセシビリティ → タッチ → 背面タップ** に進みます。
+3. **ダブルタップ** を開きます。
+4. **Windows iOS Universal Clipboard** を選びます。
 
-1. ショートカットのリンクを開く；
-2. **Get Shortcut** をタップ；
-3. **Add Shortcut** をタップ；
-4. 追加したショートカットを開く；
-5. 右下の **> 再生** ボタンをタップして一度実行；
-6. 権限を求められたら **Always Allow** を選択。
+## ✅ 使い方
 
-作業中はインストーラーのターミナルを開いたままにしてください。最初の有効な要求が自動でペアリングされます：
+> **iPhoneでテキストをコピー → iPhoneの背面を2回タップ → WindowsでCtrl+V。**
 
-```text
-OK - iPhone detected
-OK - device paired
-```
+Windows 起動時に自動で開始し、バックグラウンドで動作します。
 
-続いて背面タップを設定します：
+---
 
-**設定 -> アクセシビリティ -> タッチ -> 背面タップ -> ダブルタップ -> Windows iOS Universal Clipboard**
+## 停止 / 開始 / アンインストール
 
-通常の使い方：
-
-```text
-iPhone でコピー -> 背面をダブルタップ -> Windows で Ctrl+V
-```
-
-## 自動起動しますか？
-
-はい。Windows にサインインすると `WindowsIOSUniversalClipboard.exe` がバックグラウンドで静かに起動します。
-
-## 一時停止
+### 一時停止
 
 ```powershell
 irm https://raw.githubusercontent.com/canbolayir/windows-ios-universal-clipboard/main/stop.ps1 | iex
 ```
 
-自動起動設定は残ります。
-
-## 再開
+### 再開
 
 ```powershell
 irm https://raw.githubusercontent.com/canbolayir/windows-ios-universal-clipboard/main/start.ps1 | iex
 ```
 
-## 完全アンインストール
+### 完全に削除
 
 ```powershell
 irm https://raw.githubusercontent.com/canbolayir/windows-ios-universal-clipboard/main/uninstall.ps1 | iex
 ```
 
-アプリ、ペアリング済みデバイス情報、設定とログ、自動起動、ファイアウォールルール、旧 bridge のファイル/タスクを削除します。
+---
 
-Apple Bonjour は、iTunes や iCloud など他の Apple ソフトが使用する可能性があるため残します。Bonjour も削除する場合：
+## 補足
 
-```powershell
-winget uninstall --id Apple.Bonjour
-```
-
-## ペアリングの仕組み
-
-インストーラーは短時間だけローカルのペアリングウィンドウを開きます。その間に、直接接続されたローカルサブネットから有効なクリップボード要求を送った最初の未知デバイスを許可リストへ自動追加します。最初のペアリング後、ウィンドウは直ちに閉じます。
-
-インストール中以外は、未知のデバイスが**自動承認されることはありません**。
-
-```text
-%LOCALAPPDATA%\WindowsIOSUniversalClipboard\config.json
-```
-
-## 検出の仕組み
-
-Windows アプリは Bonjour/mDNS で `copybridge.local` を公開し、ショートカットは次の URL にテキストを送ります：
-
-```text
-http://copybridge.local:8765/copy
-```
-
-## プライバシーとセキュリティ
-
-クリップボードのテキストはローカルネットワーク上を直接流れます。アカウント機能やクラウド中継はありません。
-
-現在の転送方式は HTTP のため、LAN 上の通信は**暗号化されません**。信頼できるネットワークでのみ使用してください。Windows ファイアウォールとアプリの両方がアクセスを直接接続されたローカルサブネットに制限します。
-
-ペアリングは暗号学的なデバイス識別ではなく、ローカルネットワークの送信元アドレスに基づきます。DHCP により iPhone のアドレスが変わった場合、再ペアリングが必要になることがあります。
-
-TCP ポート `8765` をインターネットへ公開しないでください。
-
-## ビルド
-
-Windows で .NET 10 SDK が必要です：
-
-```powershell
-dotnet build .\src\WindowsIOSUniversalClipboard\WindowsIOSUniversalClipboard.csproj
-```
+- iPhone と PC は同じローカルネットワークに接続してください。
+- クリップボードのテキストはローカルネットワーク上で直接送信され、クラウドアカウントは使いません。
+- 信頼できるネットワークで使用してください。
+- アンインストールするとアプリ、ペアリング情報、自動起動、ファイアウォールルールが削除されます。Bonjour は他の Apple ソフトが使う可能性があるため残ります。
 
 ## ライセンス
 

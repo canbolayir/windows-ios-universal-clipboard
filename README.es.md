@@ -1,129 +1,89 @@
+<div align="center">
+
 # Windows iOS Universal Clipboard
+
+### Copia en iPhone. Pega en Windows.
+
+Un puente pequeño y sencillo para copiar texto del iPhone a Windows como si fuera Universal Clipboard.
 
 [English](README.md) · [Türkçe](README.tr.md) · [Español](README.es.md) · [简体中文](README.zh-CN.md) · [हिन्दी](README.hi.md) · [العربية](README.ar.md) · [Português](README.pt-BR.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [日本語](README.ja.md)
 
-**Copia en iPhone. Pega en Windows.**
+</div>
 
-Un pequeño puente de portapapeles por red local que ofrece un flujo tipo Universal Clipboard entre iPhone y Windows.
+---
 
-> Proyecto no oficial. No está afiliado con Apple ni Microsoft. "Universal Clipboard" se usa de forma descriptiva.
+## 🎬 Vídeo de instalación
 
-## Instalación
+[Haz clic en la imagen para ver la instalación completa.](docs/setup.mp4)
 
-Abre PowerShell y ejecuta:
+[![Setup video](docs/setup-cover.jpg)](docs/setup.mp4)
+
+---
+
+## 1. Instalación
+
+Abre **PowerShell** en Windows y ejecuta:
 
 ```powershell
 irm https://raw.githubusercontent.com/canbolayir/windows-ios-universal-clipboard/main/install.ps1 | iex
 ```
 
-El instalador:
+## 2. Configura tu iPhone
 
-1. instala y configura el puente de Windows;
-2. instala Apple Bonjour si hace falta;
-3. limita el firewall a la subred local;
-4. activa el inicio automático en segundo plano;
-5. muestra el enlace del Atajo de iPhone;
-6. espera la primera solicitud del Atajo y empareja ese iPhone automáticamente.
+**[Añadir el Atajo de iPhone](https://www.icloud.com/shortcuts/e870980e381e4675a27af38c91db1265)**
 
-No necesitas IP, nombre del PC ni token.
+1. Abre en tu iPhone el enlace del Atajo de abajo.
+2. Toca **Get Shortcut**.
+3. Toca **Add Shortcut**.
+4. Abre el nuevo Atajo.
+5. Toca una vez el botón **▶** de la esquina inferior derecha.
+6. Cuando iPhone pida permiso, toca **Always Allow**.
 
-Atajo compartido:
+> Mantén abierta la ventana de PowerShell. El iPhone se detectará y emparejará automáticamente.
 
-**[Añadir Windows iOS Universal Clipboard](https://www.icloud.com/shortcuts/e870980e381e4675a27af38c91db1265)**
+## 3. Activa el doble toque
 
-Durante la instalación, sigue estos pasos en el iPhone:
+1. Abre **Ajustes** en el iPhone.
+2. Ve a **Accesibilidad → Tocar → Tocar atrás**.
+3. Abre **Doble toque**.
+4. Elige **Windows iOS Universal Clipboard**.
 
-1. abre el enlace del Atajo;
-2. toca **Get Shortcut**;
-3. toca **Add Shortcut**;
-4. abre el Atajo recién añadido;
-5. toca el botón **> reproducir** de la esquina inferior derecha para ejecutarlo una vez;
-6. cuando iPhone pida permiso, toca **Always Allow**.
+## ✅ Cómo usarlo
 
-Mantén abierta la terminal del instalador. La primera solicitud válida se empareja automáticamente:
+> **Copia texto en el iPhone → toca dos veces la parte trasera del iPhone → pulsa Ctrl+V en Windows.**
 
-```text
-OK - iPhone detected
-OK - device paired
-```
+Se inicia automáticamente con Windows y funciona en segundo plano.
 
-Después configura Toque posterior:
+---
 
-**Ajustes -> Accesibilidad -> Tocar -> Tocar atrás -> Tocar dos veces -> Windows iOS Universal Clipboard**
+## Detener / Iniciar / Desinstalar
 
-Uso normal:
-
-```text
-Copiar en iPhone -> doble toque atrás -> Ctrl+V en Windows
-```
-
-## ¿Se inicia automáticamente?
-
-Sí. Tras iniciar sesión en Windows, `WindowsIOSUniversalClipboard.exe` se inicia silenciosamente en segundo plano.
-
-## Detener temporalmente
+### Detener temporalmente
 
 ```powershell
 irm https://raw.githubusercontent.com/canbolayir/windows-ios-universal-clipboard/main/stop.ps1 | iex
 ```
 
-El inicio automático sigue activado.
-
-## Iniciar de nuevo
+### Iniciar de nuevo
 
 ```powershell
 irm https://raw.githubusercontent.com/canbolayir/windows-ios-universal-clipboard/main/start.ps1 | iex
 ```
 
-## Desinstalar por completo
+### Eliminar por completo
 
 ```powershell
 irm https://raw.githubusercontent.com/canbolayir/windows-ios-universal-clipboard/main/uninstall.ps1 | iex
 ```
 
-El desinstalador elimina la app, dispositivos emparejados, configuración, logs, inicio automático, reglas de firewall y archivos/tareas antiguas.
+---
 
-Apple Bonjour se conserva porque otras apps de Apple pueden usarlo. Para eliminarlo también:
+## Información útil
 
-```powershell
-winget uninstall --id Apple.Bonjour
-```
-
-## Cómo funciona el emparejamiento
-
-Durante la instalación se abre una ventana de emparejamiento local temporal. Solo mientras está activa, el primer dispositivo desconocido de la subred local que envíe una solicitud válida se añade automáticamente a la lista aprobada. Después, la ventana se cierra.
-
-Fuera de la instalación, los dispositivos desconocidos **no** se aprueban automáticamente.
-
-```text
-%LOCALAPPDATA%\WindowsIOSUniversalClipboard\config.json
-```
-
-## Cómo funciona el descubrimiento
-
-La app publica `copybridge.local` mediante Bonjour/mDNS y el Atajo envía el texto a:
-
-```text
-http://copybridge.local:8765/copy
-```
-
-## Privacidad y seguridad
-
-El texto del portapapeles viaja directamente por la red local. No hay cuentas ni relay en la nube.
-
-El transporte actual usa HTTP, por lo que el tráfico **no está cifrado** en la LAN. Úsalo solo en redes de confianza. El firewall y la app limitan el acceso a subredes locales directamente conectadas.
-
-El emparejamiento se basa en direcciones de origen de la red local, no en identidad criptográfica. Si DHCP cambia la IP del iPhone, puede ser necesario volver a emparejar.
-
-No expongas el puerto TCP `8765` a Internet.
-
-## Compilar
-
-Requiere .NET 10 SDK en Windows:
-
-```powershell
-dotnet build .\src\WindowsIOSUniversalClipboard\WindowsIOSUniversalClipboard.csproj
-```
+- El iPhone y el PC deben estar en la misma red local.
+- El texto del portapapeles viaja directamente por tu red local; no hay una cuenta de portapapeles en la nube.
+- Úsalo en redes de confianza.
+- La desinstalación elimina la app, el emparejamiento, el inicio automático y las reglas del firewall. Bonjour se conserva porque otras apps de Apple pueden usarlo.
 
 ## Licencia
 

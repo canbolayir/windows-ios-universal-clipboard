@@ -1,129 +1,89 @@
+<div align="center">
+
 # Windows iOS Universal Clipboard
+
+### انسخ على iPhone. الصق على Windows.
+
+أداة صغيرة وبسيطة تجعل نسخ النص من iPhone إلى Windows قريباً من تجربة Universal Clipboard.
 
 [English](README.md) · [Türkçe](README.tr.md) · [Español](README.es.md) · [简体中文](README.zh-CN.md) · [हिन्दी](README.hi.md) · [العربية](README.ar.md) · [Português](README.pt-BR.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [日本語](README.ja.md)
 
-**انسخ على iPhone والصق على Windows.**
+</div>
 
-جسر صغير للحافظة عبر الشبكة المحلية يمنح iPhone + Windows تجربة شبيهة بـ Universal Clipboard.
+---
 
-> مشروع غير رسمي وغير تابع لـ Apple أو Microsoft. يُستخدم اسم "Universal Clipboard" للوصف فقط.
+## 🎬 فيديو الإعداد
 
-## التثبيت
+[اضغط على الصورة لمشاهدة الإعداد الكامل.](docs/setup.mp4)
 
-افتح PowerShell وشغّل:
+[![Setup video](docs/setup-cover.jpg)](docs/setup.mp4)
+
+---
+
+## 1. التثبيت
+
+افتح **PowerShell** على Windows وشغّل:
 
 ```powershell
 irm https://raw.githubusercontent.com/canbolayir/windows-ios-universal-clipboard/main/install.ps1 | iex
 ```
 
-يقوم المثبّت تلقائيًا بـ:
+## 2. إعداد iPhone
 
-1. تثبيت جسر Windows وإعداده؛
-2. تثبيت Apple Bonjour عند الحاجة؛
-3. تقييد جدار الحماية بالشبكة الفرعية المحلية فقط؛
-4. تفعيل التشغيل التلقائي في الخلفية بعد تسجيل الدخول إلى Windows؛
-5. عرض رابط اختصار iPhone؛
-6. انتظار أول طلب من الاختصار وإقران iPhone تلقائيًا.
+**[إضافة اختصار iPhone](https://www.icloud.com/shortcuts/e870980e381e4675a27af38c91db1265)**
 
-لا تحتاج إلى عنوان IP أو اسم الكمبيوتر أو token.
+1. افتح رابط الاختصار أدناه على iPhone.
+2. اضغط **Get Shortcut**.
+3. اضغط **Add Shortcut**.
+4. افتح الاختصار الجديد.
+5. اضغط مرة واحدة على زر **▶** أسفل اليمين.
+6. عندما يطلب iPhone الإذن، اختر **Always Allow**.
 
-الاختصار المشترك:
+> اترك نافذة PowerShell مفتوحة. سيتم اكتشاف iPhone وإقرانه تلقائياً.
 
-**[إضافة Windows iOS Universal Clipboard](https://www.icloud.com/shortcuts/e870980e381e4675a27af38c91db1265)**
+## 3. تفعيل النقر مرتين
 
-أثناء التثبيت على iPhone:
+1. افتح **Settings** على iPhone.
+2. اذهب إلى **Accessibility → Touch → Back Tap**.
+3. اختر **Double Tap**.
+4. اختر **Windows iOS Universal Clipboard**.
 
-1. افتح رابط الاختصار؛
-2. اضغط **Get Shortcut**؛
-3. اضغط **Add Shortcut**؛
-4. افتح الاختصار الذي أُضيف؛
-5. اضغط زر **> التشغيل** أسفل اليمين لتشغيله مرة واحدة؛
-6. عند طلب الإذن اختر **Always Allow**.
+## ✅ طريقة الاستخدام
 
-اترك نافذة الطرفية مفتوحة. أول طلب صالح سيُقرن تلقائيًا:
+> **انسخ النص على iPhone → انقر مرتين على ظهر iPhone → اضغط Ctrl+V على Windows.**
 
-```text
-OK - iPhone detected
-OK - device paired
-```
+يبدأ تلقائياً مع Windows ويعمل بصمت في الخلفية.
 
-ثم اضبط Back Tap:
+---
 
-**Settings -> Accessibility -> Touch -> Back Tap -> Double Tap -> Windows iOS Universal Clipboard**
+## إيقاف / تشغيل / إزالة
 
-الاستخدام اليومي:
-
-```text
-انسخ على iPhone -> انقر مرتين على ظهر iPhone -> Ctrl+V على Windows
-```
-
-## هل يبدأ تلقائيًا؟
-
-نعم. بعد تسجيل الدخول إلى Windows يبدأ `WindowsIOSUniversalClipboard.exe` بصمت في الخلفية.
-
-## إيقاف مؤقت
+### إيقاف مؤقت
 
 ```powershell
 irm https://raw.githubusercontent.com/canbolayir/windows-ios-universal-clipboard/main/stop.ps1 | iex
 ```
 
-سيبقى التشغيل التلقائي مفعّلًا.
-
-## التشغيل من جديد
+### تشغيل مرة أخرى
 
 ```powershell
 irm https://raw.githubusercontent.com/canbolayir/windows-ios-universal-clipboard/main/start.ps1 | iex
 ```
 
-## الإزالة الكاملة
+### إزالة كاملة
 
 ```powershell
 irm https://raw.githubusercontent.com/canbolayir/windows-ios-universal-clipboard/main/uninstall.ps1 | iex
 ```
 
-يزيل برنامج الإزالة التطبيق وبيانات الأجهزة المقترنة والإعدادات والسجلات والتشغيل التلقائي وقواعد جدار الحماية وملفات/مهام الإصدارات القديمة.
+---
 
-يُترك Apple Bonjour مثبتًا لأن برامج Apple الأخرى قد تستخدمه. لإزالته أيضًا:
+## ملاحظات
 
-```powershell
-winget uninstall --id Apple.Bonjour
-```
-
-## كيف يعمل الاقتران؟
-
-يفتح المثبّت نافذة اقتران محلية قصيرة. أثناء تفعيلها فقط، يُضاف أول جهاز غير معروف من الشبكة الفرعية المحلية يرسل طلب حافظة صالحًا إلى قائمة الأجهزة المسموح بها. تُغلق النافذة مباشرة بعد أول اقتران.
-
-خارج عملية التثبيت، الأجهزة غير المعروفة **لا تُعتمد تلقائيًا**.
-
-```text
-%LOCALAPPDATA%\WindowsIOSUniversalClipboard\config.json
-```
-
-## كيف يعمل الاكتشاف؟
-
-ينشر التطبيق `copybridge.local` عبر Bonjour/mDNS ويرسل الاختصار النص إلى:
-
-```text
-http://copybridge.local:8765/copy
-```
-
-## الخصوصية والأمان
-
-ينتقل نص الحافظة مباشرة عبر الشبكة المحلية. لا توجد حسابات ولا خدمة وسيطة سحابية.
-
-النقل الحالي يستخدم HTTP، لذلك البيانات على LAN **غير مشفرة**. استخدمه فقط على شبكات تثق بها. يقيّد جدار حماية Windows والتطبيق الوصول إلى الشبكات الفرعية المحلية المتصلة مباشرة.
-
-يعتمد الاقتران على عنوان المصدر في الشبكة المحلية وليس على هوية جهاز مشفرة. إذا غيّر DHCP عنوان iPhone فقد تحتاج إلى الاقتران من جديد.
-
-لا تعرض منفذ TCP `8765` للإنترنت العام.
-
-## البناء
-
-يتطلب .NET 10 SDK على Windows:
-
-```powershell
-dotnet build .\src\WindowsIOSUniversalClipboard\WindowsIOSUniversalClipboard.csproj
-```
+- يجب أن يكون iPhone والكمبيوتر على نفس الشبكة المحلية.
+- نص الحافظة ينتقل مباشرة عبر الشبكة المحلية ولا توجد خدمة حافظة سحابية.
+- استخدمه على شبكات تثق بها.
+- الإزالة تحذف التطبيق وبيانات الاقتران وبدء التشغيل وقواعد الجدار الناري. يتم إبقاء Bonjour لأنه قد يُستخدم من تطبيقات Apple أخرى.
 
 ## الترخيص
 

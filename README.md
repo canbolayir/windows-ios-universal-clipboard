@@ -1,154 +1,89 @@
+<div align="center">
+
 # Windows iOS Universal Clipboard
+
+### Copy on iPhone. Paste on Windows.
+
+A tiny bridge that makes copying text from iPhone to Windows feel almost like Universal Clipboard.
 
 [English](README.md) · [Türkçe](README.tr.md) · [Español](README.es.md) · [简体中文](README.zh-CN.md) · [हिन्दी](README.hi.md) · [العربية](README.ar.md) · [Português](README.pt-BR.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [日本語](README.ja.md)
 
-**Copy on iPhone. Paste on Windows.**
+</div>
 
-A small local-network clipboard bridge that gives iPhone + Windows a Universal Clipboard-style workflow.
+---
 
-> Unofficial project. Not affiliated with Apple or Microsoft. "Universal Clipboard" is used descriptively.
+## 🎬 Setup video
 
-## Install
+[Click the image to watch the full setup video.](docs/setup.mp4)
 
-Open PowerShell and run:
+[![Setup video](docs/setup-cover.jpg)](docs/setup.mp4)
+
+---
+
+## 1. Install
+
+Open **PowerShell** on Windows and run:
 
 ```powershell
 irm https://raw.githubusercontent.com/canbolayir/windows-ios-universal-clipboard/main/install.ps1 | iex
 ```
 
-The installer does the rest:
+## 2. Set up your iPhone
 
-1. installs/configures the Windows bridge;
-2. installs Apple Bonjour when needed;
-3. configures local-subnet-only firewall access;
-4. enables automatic background startup with Windows;
-5. shows the shared iPhone Shortcut link;
-6. waits for the first Shortcut request and pairs that iPhone automatically.
+**[Add the iPhone Shortcut](https://www.icloud.com/shortcuts/e870980e381e4675a27af38c91db1265)**
 
-No IP address, PC hostname, or token is required.
+1. Open the Shortcut link below on your iPhone.
+2. Tap **Get Shortcut**.
+3. Tap **Add Shortcut**.
+4. Open the new Shortcut.
+5. Tap the **▶ play** button in the bottom-right corner once.
+6. When iPhone asks for permission, tap **Always Allow**.
 
-Shared Shortcut:
+> Keep the PowerShell window open while doing this. It will detect and pair your iPhone automatically.
 
-**[Add Windows iOS Universal Clipboard](https://www.icloud.com/shortcuts/e870980e381e4675a27af38c91db1265)**
+## 3. Turn on Double Tap
 
-During installation, the terminal guides the iPhone setup step by step:
+1. Open **Settings** on iPhone.
+2. Go to **Accessibility → Touch → Back Tap**.
+3. Open **Double Tap**.
+4. Choose **Windows iOS Universal Clipboard**.
 
-1. open the Shortcut link on the iPhone;
-2. tap **Get Shortcut**;
-3. tap **Add Shortcut**;
-4. open the newly added Shortcut;
-5. tap the **> play** button in the bottom-right corner to run it once;
-6. when iPhone asks for permission, tap **Always Allow**.
+## ✅ How to use
 
-Keep the installer terminal open while doing this. The first valid Shortcut request is paired automatically, and the terminal should show:
+> **Copy text on iPhone → double-tap the back of your iPhone → press Ctrl+V on Windows.**
 
-```text
-OK - iPhone detected
-OK - device paired
-```
+It starts automatically with Windows and runs silently in the background.
 
-The installer then guides the Back Tap setup:
+---
 
-**Settings -> Accessibility -> Touch -> Back Tap -> Double Tap -> Windows iOS Universal Clipboard**
+## Stop / Start / Uninstall
 
-After that the normal workflow can be:
-
-```text
-Copy on iPhone -> Double Tap the back of the iPhone -> Ctrl+V on Windows
-```
-
-## Does it start automatically?
-
-Yes. The installer adds the bridge to the current Windows user's startup configuration.
-
-After Windows sign-in, `WindowsIOSUniversalClipboard.exe` starts silently in the background. No terminal window needs to remain open.
-
-## Stop it temporarily
+### Stop temporarily
 
 ```powershell
 irm https://raw.githubusercontent.com/canbolayir/windows-ios-universal-clipboard/main/stop.ps1 | iex
 ```
 
-This stops the current background process. Automatic startup remains enabled, so it will run again after the next Windows sign-in.
-
-## Start it again
+### Start again
 
 ```powershell
 irm https://raw.githubusercontent.com/canbolayir/windows-ios-universal-clipboard/main/start.ps1 | iex
 ```
 
-## Completely uninstall it
+### Remove completely
 
 ```powershell
 irm https://raw.githubusercontent.com/canbolayir/windows-ios-universal-clipboard/main/uninstall.ps1 | iex
 ```
 
-The uninstaller removes:
+---
 
-- the app;
-- paired-device data;
-- config and logs;
-- automatic startup;
-- firewall rules;
-- old/legacy bridge tasks and files.
+## Good to know
 
-Apple Bonjour is deliberately left installed because iTunes, iCloud, or other Apple software may use it.
-
-To remove Bonjour too:
-
-```powershell
-winget uninstall --id Apple.Bonjour
-```
-
-## How pairing works
-
-The installer creates a short-lived local pairing window while it waits in the terminal.
-
-Only while that setup window is active, the first unknown device on the PC's directly connected local subnet that sends a valid clipboard request is automatically added to the local approved-device list. The pairing window closes immediately after that first pairing.
-
-Outside installation, unknown devices are **not** silently auto-approved.
-
-Approved devices are stored locally in:
-
-```text
-%LOCALAPPDATA%\WindowsIOSUniversalClipboard\config.json
-```
-
-The installer/uninstaller removes this state when appropriate.
-
-## How discovery works
-
-The Windows app publishes:
-
-```text
-copybridge.local
-```
-
-on the local network using Bonjour/mDNS. The Shortcut always sends copied text to:
-
-```text
-http://copybridge.local:8765/copy
-```
-
-So the Shortcut does not need to know the PC's changing DHCP address or Windows computer name.
-
-## Privacy and security
-
-Clipboard text travels directly across the local network. This project has no account system and no cloud clipboard relay.
-
-The current transport is HTTP, so clipboard traffic is **not encrypted** on the LAN. The Windows firewall and the app both restrict access to directly connected local subnets. Use it on networks you trust.
-
-The pairing model is intentionally a convenience model based on local-network source addresses, not cryptographic device identity. If DHCP changes the iPhone's address, pairing may need to be repeated.
-
-Do not expose TCP port `8765` to the public internet.
-
-## Build
-
-Requires the .NET 10 SDK on Windows:
-
-```powershell
-dotnet build .\src\WindowsIOSUniversalClipboard\WindowsIOSUniversalClipboard.csproj
-```
+- Your iPhone and PC should be on the same local network.
+- Clipboard text is sent directly over your local network; there is no cloud clipboard account.
+- Use it on networks you trust.
+- Uninstall removes the app, pairing data, startup entry and firewall rules. Apple Bonjour is left installed because other Apple software may use it.
 
 ## License
 
