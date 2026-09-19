@@ -135,7 +135,8 @@ try {
         -Program $ExePath `
         -Protocol TCP `
         -LocalPort 8765 `
-        -Profile Private | Out-Null
+        -Profile Any `
+        -RemoteAddress LocalSubnet | Out-Null
 
     $bonjourExe = "C:\Program Files\Bonjour\mDNSResponder.exe"
     if (Test-Path $bonjourExe) {
@@ -146,7 +147,8 @@ try {
             -Program $bonjourExe `
             -Protocol UDP `
             -LocalPort 5353 `
-            -Profile Private | Out-Null
+            -Profile Any `
+            -RemoteAddress LocalSubnet | Out-Null
     }
 
     Start-Process $ExePath

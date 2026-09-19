@@ -29,7 +29,7 @@ The installer:
 
 - installs Apple Bonjour automatically if local discovery is missing;
 - downloads the latest self-contained Windows release;
-- adds the required Private-network firewall rules;
+- adds inbound firewall rules scoped to your **local subnet only** (works whether Windows labels the network Public or Private);
 - starts the clipboard bridge;
 - configures automatic startup.
 
@@ -41,7 +41,7 @@ Current release: **Windows x64**.
 
 Add the shared Shortcut:
 
-**Shortcut link: coming next**
+**Shortcut:** [Add Windows iOS Universal Clipboard](https://www.icloud.com/shortcuts/e870980e381e4675a27af38c91db1265)
 
 The Shortcut is identical for every user. It always sends copied text to:
 
@@ -62,18 +62,18 @@ There is no per-user hostname, IP, or token.
 
 For a macOS-like gesture, assign the Shortcut to:
 
-**Settings → Accessibility → Touch → Back Tap**
+**Settings â†’ Accessibility â†’ Touch â†’ Back Tap**
 
 Then the normal flow is:
 
-**Copy on iPhone → Back Tap → Ctrl+V on Windows**
+**Copy on iPhone â†’ Back Tap â†’ Ctrl+V on Windows**
 
 ## How local discovery works
 
 The Windows app publishes this local mDNS record through Apple's Bonjour DNS-SD client:
 
 ```text
-copybridge.local → your active Windows LAN address
+copybridge.local â†’ your active Windows LAN address
 ```
 
 The alias is refreshed when the PC's active network interfaces or IP addresses change.
@@ -84,7 +84,7 @@ The iPhone Shortcut therefore never needs to know the Windows computer name or D
 
 Clipboard text is transferred directly over the local network using HTTP. It is **not encrypted** and is not sent through this project or a cloud relay.
 
-An unknown source IP cannot write to the Windows clipboard until the user explicitly approves it on the Windows PC.
+Requests from outside the PC's directly connected local subnets are rejected. An unknown local source IP cannot write to the Windows clipboard until the user explicitly approves it on the Windows PC.
 
 Approved source IPs are stored locally in:
 

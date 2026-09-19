@@ -66,6 +66,61 @@ void SaveConfig()
 IPAddress NormalizeIp(IPAddress address) =>
     address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address;
 
+
+bool IsSameSubnet(IPAddress a, IPAddress b, IPAddress mask)
+{
+    var aa = a.GetAddressBytes();
+    var bb = b.GetAddressBytes();
+    var mm = mask.GetAddressBytes();
+
+    if (aa.Length != 4 || bb.Length != 4 || mm.Length != 4)
+        return false;
+
+    for (var i = 0; i < 4; i++)
+    {
+        if ((aa[i] & mm[i]) != (bb[i] & mm[i]))
+            return false;
+    }
+
+    return true;
+}
+
+bool IsLocalNetworkAddress(IPAddress address)
+{
+    address = NormalizeIp(address);
+
+    if (IPAddress.IsLoopback(address))
+        return true;
+
+    if (address.AddressFamily != AddressFamily.InterNetwork)
+        return false;
+
+    foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
+    {
+        if (nic.OperationalStatus != OperationalStatus.Up)
+            continue;
+
+        if (nic.NetworkInterfaceType is NetworkInterfaceType.Loopback or NetworkInterfaceType.Tunnel)
+            continue;
+
+        IPInterfaceProperties props;
+        try { props = nic.GetIPProperties(); }
+        catch { continue; }
+
+        foreach (var unicast in props.UnicastAddresses)
+        {
+            if (unicast.Address.AddressFamily != AddressFamily.InterNetwork ||
+                unicast.IPv4Mask is null)
+                continue;
+
+            if (IsSameSubnet(address, unicast.Address, unicast.IPv4Mask))
+                return true;
+        }
+    }
+
+    return false;
+}
+
 bool IsApproved(string ip)
 {
     lock (configLock)
@@ -113,6 +168,12 @@ async Task<bool> EnsureApprovedAsync(IPAddress? remoteAddress)
     var remote = NormalizeIp(remoteAddress);
     if (IPAddress.IsLoopback(remote))
         return true;
+
+    if (!IsLocalNetworkAddress(remote))
+    {
+        Log($"Rejected non-local source {remote}.");
+        return false;
+    }
 
     var ip = remote.ToString();
 

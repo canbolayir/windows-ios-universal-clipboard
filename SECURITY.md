@@ -6,7 +6,9 @@ Windows iOS Universal Clipboard is designed for **trusted local networks**.
 
 - Clipboard traffic stays on the local network.
 - There is no cloud relay operated by this project.
-- Unknown source IPs require an explicit Windows **Yes / No** approval.
+- The Windows firewall rules are limited to `LocalSubnet`, even on networks Windows classifies as Public.
+- The app also rejects non-local-subnet source addresses before pairing.
+- Unknown local source IPs require an explicit Windows **Yes / No** approval.
 - Approved source IPs are stored locally.
 - Rejected sources are temporarily rate-limited to avoid repeated approval prompts.
 
