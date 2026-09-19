@@ -17,12 +17,13 @@ Directory.CreateDirectory(dataDir);
 
 var configPath = Path.Combine(dataDir, "config.json");
 var logPath = Path.Combine(dataDir, "app.log");
-var pairingPath = Path.Combine(dataDir, "pairing.enabled");
 
 var configLock = new object();
 var approvalGate = new SemaphoreSlim(1, 1);
 var deniedUntil = new ConcurrentDictionary<string, DateTimeOffset>();
 var config = LoadConfig(configPath);
+var pairingLock = new object();
+var pairingUntil = DateTimeOffset.MinValue;
 
 void Log(string message)
 {
@@ -128,10 +129,29 @@ bool IsApproved(string ip)
         return config.ApprovedDevices.Contains(ip, StringComparer.OrdinalIgnoreCase);
 }
 
+bool IsInstallerPairingActive()
+{
+    lock (pairingLock)
+        return pairingUntil > DateTimeOffset.Now;
+}
+
+void StartInstallerPairingWindow()
+{
+    lock (pairingLock)
+        pairingUntil = DateTimeOffset.Now.AddMinutes(5);
+
+    Log("Installer pairing window opened.");
+}
+
 bool TryInstallerPairing(string ip)
 {
-    if (!File.Exists(pairingPath))
-        return false;
+    lock (pairingLock)
+    {
+        if (pairingUntil <= DateTimeOffset.Now)
+            return false;
+
+        pairingUntil = DateTimeOffset.MinValue;
+    }
 
     try
     {
@@ -144,7 +164,6 @@ bool TryInstallerPairing(string ip)
 
         deniedUntil.TryRemove(ip, out _);
         SaveConfig();
-        File.Delete(pairingPath);
         Log($"Installer auto-paired {ip}");
         return true;
     }
@@ -312,9 +331,19 @@ app.MapGet("/health", () => Results.Ok(new
     hostname = AliasHost,
     discovery = discovery.State,
     approvedDevices = config.ApprovedDevices.Count,
-    pairing = File.Exists(pairingPath),
+    pairing = IsInstallerPairingActive(),
     lastPairedDevice = config.LastPairedDevice
 }));
+
+app.MapPost("/pairing/start", (HttpContext context) =>
+{
+    var remote = context.Connection.RemoteIpAddress;
+    if (remote is null || !IPAddress.IsLoopback(NormalizeIp(remote)))
+        return Results.NotFound();
+
+    StartInstallerPairingWindow();
+    return Results.Ok(new { ok = true, expiresInSeconds = 300 });
+});
 
 app.MapGet("/setup", () =>
 {

@@ -5,7 +5,6 @@ $Repo = "canbolayir/windows-ios-universal-clipboard"
 $ShortcutUrl = "https://www.icloud.com/shortcuts/e870980e381e4675a27af38c91db1265"
 $InstallDir = Join-Path $env:LOCALAPPDATA "WindowsIOSUniversalClipboard"
 $ExePath = Join-Path $InstallDir "WindowsIOSUniversalClipboard.exe"
-$PairingPath = Join-Path $InstallDir "pairing.enabled"
 $RunKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
 $RunName = "WindowsIOSUniversalClipboard"
 $Port = 8765
@@ -181,7 +180,10 @@ try {
         exit
     }
 
-    New-Item -ItemType File -Path $PairingPath -Force | Out-Null
+    $pairing = Invoke-RestMethod "http://127.0.0.1:$Port/pairing/start" -Method Post -TimeoutSec 2
+    if (-not $pairing.ok) {
+        throw "Could not open the installer pairing window."
+    }
 
     Write-Host "[3/4] Waiting for your iPhone..." -ForegroundColor Cyan
     Write-Host "On the iPhone:"
@@ -211,7 +213,6 @@ try {
     }
 
     Write-Host ""
-    Remove-Item $PairingPath -Force -ErrorAction SilentlyContinue
 
     if ($paired) {
         Write-Host "      OK - iPhone detected: $pairedIp" -ForegroundColor Green
@@ -227,6 +228,5 @@ try {
     }
 }
 finally {
-    Remove-Item $PairingPath -Force -ErrorAction SilentlyContinue
     Remove-Item $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
