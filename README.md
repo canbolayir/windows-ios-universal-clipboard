@@ -1,106 +1,100 @@
 # Windows iOS Universal Clipboard
 
-**Copy on iPhone. Paste on Windows.**
+Copy text on your iPhone. Paste it on Windows.
 
-A tiny local-network clipboard bridge for iPhone and Windows.
+A small, local-network bridge that gives **iPhone + Windows** a Universal Clipboard-style workflow.
 
-- No account
-- No cloud relay
-- No hostname setup
-- No token to copy
-- One-time Windows approval
-- Works with iPhone Back Tap
-- Starts automatically with Windows
+> Unofficial project. Not affiliated with Apple or Microsoft. “Universal Clipboard” is used descriptively.
 
-> Not affiliated with Apple. "Universal Clipboard" is used descriptively.
+## Install
 
-## Install on Windows
-
-Open PowerShell and run:
+Open **PowerShell** on Windows and run:
 
 ```powershell
 irm https://raw.githubusercontent.com/canbolayir/windows-ios-universal-clipboard/main/install.ps1 | iex
 ```
 
-Accept the Windows UAC prompt. The installer downloads the latest self-contained release, adds Private-network firewall rules, starts the app, and configures automatic startup.
+That's it.
 
-No .NET installation is required.
+The installer:
 
-## Install on iPhone
-
-Add the shared Shortcut from the link below:
-
-**Shortcut link: coming next**
-
-The Shortcut is the same for every user. It sends copied text to:
+- downloads the latest self-contained build
+- installs Apple Bonjour when needed
+- creates a Private-network-only firewall rule
+- starts automatically when you sign in
+- publishes one universal local address:
 
 ```text
 http://copybridge.local:8765/copy
 ```
 
-There is no per-user hostname or token.
+No IP address. No PC hostname. No token to copy.
 
-### First use
+## iPhone Shortcut
 
-1. Make sure the iPhone and Windows PC are on the same local network.
-2. Copy text on the iPhone.
-3. Run the Shortcut.
-4. Windows asks whether to allow that device.
-5. Click **Yes** once.
-6. Paste anywhere on Windows with `Ctrl+V`.
+The shared Shortcut always uses the same endpoint:
 
-For a macOS-like gesture, assign the Shortcut to:
+```text
+http://copybridge.local:8765/copy
+```
 
-**Settings → Accessibility → Touch → Back Tap**
+Actions:
 
-Then the normal flow is:
+1. **Get Clipboard**
+2. **Get Contents of URL**
+   - URL: `http://copybridge.local:8765/copy`
+   - Method: `POST`
+   - Request Body: `JSON`
+   - `text` = Clipboard
+
+On the first request from a new device, Windows shows an **Allow / Deny** pairing prompt. Approve your iPhone once.
+
+After that:
 
 **Copy on iPhone → Back Tap → Ctrl+V on Windows**
 
-## How it works
+The public iCloud Shortcut link will be added here after publishing.
 
-The Windows app:
+## Back Tap
 
-- listens only for clipboard submissions on TCP `8765`;
-- announces `copybridge.local` over local mDNS;
-- prompts on Windows before trusting an unknown local IP;
-- remembers approved local IPs;
-- writes accepted text into the Windows clipboard.
+On iPhone:
 
-The iPhone Shortcut sends a small JSON request:
+**Settings → Accessibility → Touch → Back Tap → Double Tap → Windows Clipboard**
 
-```json
-{
-  "text": "the current iPhone clipboard text"
-}
-```
+## Security model
 
-## Privacy and security
+CopyBridge is designed for a **trusted Private local network**.
 
-Clipboard text is transferred directly over the local network using HTTP. It is **not encrypted** and is not sent through this project or a cloud service.
+- The Windows Firewall rule only applies to the **Private** profile.
+- A new LAN device must be approved once on Windows.
+- Approved device IPs are remembered locally.
+- Clipboard content is sent directly over your LAN.
+- There is no hosted clipboard service or account.
 
-Use it on networks you trust. Unknown local IPs require an explicit Windows approval before they can write to the clipboard.
+This is intentionally optimized for simple home/private Wi‑Fi use. Device approval is LAN-level protection, not cryptographic device authentication.
 
-Approved devices are stored locally in:
+Do **not** expose port `8765` to the public internet.
 
-```text
-%LOCALAPPDATA%\WindowsIOSUniversalClipboard\config.json
-```
+## Multiple PCs
+
+`copybridge.local` is intentionally optimized for a single CopyBridge PC on a LAN. Running multiple CopyBridge PCs on the same network can cause a hostname conflict.
 
 ## Uninstall
 
-```powershell
-irm https://raw.githubusercontent.com/canbolayir/windows-ios-universal-clipboard/main/uninstall.ps1 | iex
-```
+Run `uninstall.ps1` from this repository.
 
-## Build
+## Build from source
 
-Requires the .NET 10 SDK on Windows:
+Requirements: .NET 10 SDK.
 
 ```powershell
-dotnet build .\src\WindowsIOSUniversalClipboard\WindowsIOSUniversalClipboard.csproj
+dotnet publish .\src\WindowsIOSUniversalClipboard\WindowsIOSUniversalClipboard.csproj `
+  -c Release `
+  -r win-x64 `
+  --self-contained true `
+  -p:PublishSingleFile=true
 ```
 
 ## License
 
-MIT.
+MIT

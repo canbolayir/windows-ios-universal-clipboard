@@ -1,21 +1,26 @@
 # Security
 
-Windows iOS Universal Clipboard is designed for **trusted local networks**.
+## Security model
 
-## Trust model
+CopyBridge is intended for trusted home/private LANs.
 
-- Clipboard submissions are accepted only from the local network path that can reach the Windows listener.
-- An unknown source IP is not trusted automatically.
-- Windows displays an explicit **Allow / Deny** dialog on first contact.
-- Approved IP addresses are stored locally.
-- There is no cloud relay and no project-operated server.
+The bridge listens on TCP port `8765`, while the installer creates a Windows Firewall rule limited to the **Private** network profile.
 
-## Important limitation
+The first request from a previously unseen LAN IP triggers an interactive Windows **Allow / Deny** prompt. Approved device IPs are stored locally in:
 
-Clipboard text is sent over plain HTTP on the LAN. It is not end-to-end encrypted.
+```text
+%LOCALAPPDATA%\WindowsIOSUniversalClipboard\config.json
+```
 
-Do not use this project on hostile or untrusted networks if the clipboard may contain sensitive information.
+This provides simple local-network pairing without requiring users to copy tokens into the iPhone Shortcut.
 
-## Reporting a security issue
+### Important limitations
 
-Please use GitHub's private vulnerability reporting feature for this repository rather than opening a public issue.
+- Device identity is based on LAN IP, not a cryptographic device key.
+- A sufficiently capable attacker already present on the same trusted LAN may be able to spoof network identity.
+- `copybridge.local` assumes one CopyBridge PC per LAN.
+- Do not expose TCP port `8765` to the public internet.
+
+## Reporting a vulnerability
+
+Please use GitHub Security Advisories for this repository rather than publishing sensitive details in a public issue.

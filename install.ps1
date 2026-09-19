@@ -1,124 +1,132 @@
+# Windows iOS Universal Clipboard installer
+# https://github.com/canbolayir/windows-ios-universal-clipboard
+
 $ErrorActionPreference = "Stop"
 
 $Repo = "canbolayir/windows-ios-universal-clipboard"
+$TaskName = "Windows iOS Universal Clipboard"
+$FirewallName = "Windows iOS Universal Clipboard"
 $InstallDir = Join-Path $env:LOCALAPPDATA "WindowsIOSUniversalClipboard"
 $ExePath = Join-Path $InstallDir "WindowsIOSUniversalClipboard.exe"
-$RunKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-$RunName = "WindowsIOSUniversalClipboard"
+$Port = 8765
+$RawInstaller = "https://raw.githubusercontent.com/$Repo/main/install.ps1"
 
-function Test-IsAdmin {
+function Test-Administrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-    $principal = New-Object Security.Principal.WindowsPrincipal($identity)
+    $principal = [Security.Principal.WindowsPrincipal]::new($identity)
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
-if (-not (Test-IsAdmin)) {
-    $tempScript = Join-Path $env:TEMP "windows-ios-universal-clipboard-install.ps1"
-    Invoke-WebRequest "https://raw.githubusercontent.com/$Repo/main/install.ps1" -OutFile $tempScript -UseBasicParsing
-    Start-Process powershell.exe -Verb RunAs -Wait -ArgumentList @(
-        "-NoProfile",
-        "-ExecutionPolicy", "Bypass",
-        "-File", "`"$tempScript`""
-    )
+if (-not (Test-Administrator)) {
+    Write-Host "Administrator permission is needed once for the Private-network firewall rule and Bonjour." -ForegroundColor Yellow
+    $command = "irm '$RawInstaller' | iex"
+    Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile","-ExecutionPolicy","Bypass","-Command",$command
     exit
 }
 
 Write-Host ""
 Write-Host "Windows iOS Universal Clipboard" -ForegroundColor Cyan
 Write-Host "Installing..." -ForegroundColor Gray
-Write-Host ""
 
-$headers = @{
-    "User-Agent" = "windows-ios-universal-clipboard-installer"
-    "Accept" = "application/vnd.github+json"
+$arch = if ([Environment]::Is64BitOperatingSystem -and $env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "win-arm64" } else { "win-x64" }
+
+# Bonjour is required for the universal copybridge.local hostname.
+if (-not (Get-Service "Bonjour Service" -ErrorAction SilentlyContinue) -and
+    -not (Get-Service "mDNSResponder" -ErrorAction SilentlyContinue)) {
+
+    if (-not (Get-Command winget.exe -ErrorAction SilentlyContinue)) {
+        throw "Windows Package Manager (winget) is required to install Apple Bonjour automatically."
+    }
+
+    Write-Host "Installing Apple Bonjour for copybridge.local..." -ForegroundColor Gray
+    & winget.exe install --id Apple.Bonjour --exact --silent --accept-package-agreements --accept-source-agreements | Out-Host
+
+    Start-Sleep -Seconds 2
+
+    if (-not (Get-Service "Bonjour Service" -ErrorAction SilentlyContinue) -and
+        -not (Get-Service "mDNSResponder" -ErrorAction SilentlyContinue)) {
+        throw "Bonjour installation did not complete successfully."
+    }
 }
 
-$release = Invoke-RestMethod "https://api.github.com/repos/$Repo/releases/latest" -Headers $headers
-
-$arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant()
-switch ($arch) {
-    "x64"   { $assetName = "windows-ios-universal-clipboard-win-x64.zip" }
-    "arm64" { $assetName = "windows-ios-universal-clipboard-win-arm64.zip" }
-    default { throw "Unsupported Windows architecture: $arch" }
-}
-
+$release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -Headers @{ "User-Agent" = "WindowsIOSUniversalClipboard-Installer" }
+$assetName = "windows-ios-universal-clipboard-$arch.zip"
 $asset = $release.assets | Where-Object { $_.name -eq $assetName } | Select-Object -First 1
 if (-not $asset) {
-    throw "Release asset not found: $assetName"
+    throw "Release asset '$assetName' was not found."
 }
 
-$tempRoot = Join-Path $env:TEMP ("windows-ios-universal-clipboard-" + [Guid]::NewGuid().ToString("N"))
-$zipPath = Join-Path $tempRoot "app.zip"
-$extractDir = Join-Path $tempRoot "app"
-
+$tempRoot = Join-Path $env:TEMP ("windows-ios-universal-clipboard-" + [guid]::NewGuid())
+$zipPath = Join-Path $tempRoot $assetName
 New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
 
 try {
-    Write-Host "Downloading $($release.tag_name)..."
-    Invoke-WebRequest $asset.browser_download_url -OutFile $zipPath -UseBasicParsing
-    Expand-Archive $zipPath -DestinationPath $extractDir -Force
+    Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zipPath -UseBasicParsing
 
-    Get-Process WindowsIOSUniversalClipboard -ErrorAction SilentlyContinue | Stop-Process -Force
-    Start-Sleep -Milliseconds 300
+    Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+    Get-Process "WindowsIOSUniversalClipboard" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 
-    New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
-    Copy-Item (Join-Path $extractDir "WindowsIOSUniversalClipboard.exe") $ExePath -Force
-    Unblock-File $ExePath -ErrorAction SilentlyContinue
+    if (Test-Path $InstallDir) {
+        Get-ChildItem $InstallDir -Force |
+            Where-Object { $_.Name -notin @("config.json","bridge.log") } |
+            Remove-Item -Recurse -Force
+    } else {
+        New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+    }
 
-    Set-ItemProperty -Path $RunKey -Name $RunName -Value "`"$ExePath`""
+    Expand-Archive -Path $zipPath -DestinationPath $InstallDir -Force
 
-    Get-NetFirewallRule -DisplayName "Windows iOS Universal Clipboard*" -ErrorAction SilentlyContinue |
-        Remove-NetFirewallRule -ErrorAction SilentlyContinue
-
+    Get-NetFirewallRule -DisplayName $FirewallName -ErrorAction SilentlyContinue | Remove-NetFirewallRule -ErrorAction SilentlyContinue
     New-NetFirewallRule `
-        -DisplayName "Windows iOS Universal Clipboard TCP" `
+        -DisplayName $FirewallName `
         -Direction Inbound `
         -Action Allow `
-        -Program $ExePath `
+        -Profile Private `
         -Protocol TCP `
-        -LocalPort 8765 `
-        -Profile Private | Out-Null
+        -LocalPort $Port `
+        -Program $ExePath | Out-Null
 
-    New-NetFirewallRule `
-        -DisplayName "Windows iOS Universal Clipboard mDNS" `
-        -Direction Inbound `
-        -Action Allow `
-        -Program $ExePath `
-        -Protocol UDP `
-        -LocalPort 5353 `
-        -Profile Private | Out-Null
+    Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
 
-    Start-Process $ExePath
+    $action = New-ScheduledTaskAction -Execute $ExePath -WorkingDirectory $InstallDir
+    $trigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
+    $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
+    $settings = New-ScheduledTaskSettingsSet `
+        -StartWhenAvailable `
+        -AllowStartIfOnBatteries `
+        -DontStopIfGoingOnBatteries `
+        -MultipleInstances IgnoreNew `
+        -RestartCount 3 `
+        -RestartInterval (New-TimeSpan -Minutes 1) `
+        -ExecutionTimeLimit ([TimeSpan]::Zero)
 
-    $healthy = $false
-    for ($i = 0; $i -lt 20; $i++) {
+    Register-ScheduledTask `
+        -TaskName $TaskName `
+        -Action $action `
+        -Trigger $trigger `
+        -Principal $principal `
+        -Settings $settings | Out-Null
+
+    Start-ScheduledTask -TaskName $TaskName
+
+    $ready = $false
+    for ($i = 0; $i -lt 30; $i++) {
         Start-Sleep -Milliseconds 250
         try {
-            $health = Invoke-RestMethod "http://127.0.0.1:8765/health" -TimeoutSec 1
-            if ($health.ok) {
-                $healthy = $true
-                break
-            }
+            $health = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/health" -TimeoutSec 1
+            if ($health.ok) { $ready = $true; break }
         } catch {}
     }
 
-    if (-not $healthy) {
-        throw "The app was installed but did not start correctly."
+    if (-not $ready) {
+        throw "The bridge did not start."
     }
 
     Write-Host ""
     Write-Host "Installed successfully." -ForegroundColor Green
+    Write-Host "iPhone Shortcut URL: http://copybridge.local:8765/copy" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "iPhone setup:" -ForegroundColor White
-    Write-Host "1. Add the shared Shortcut."
-    Write-Host "2. Copy text on iPhone and run it."
-    Write-Host "3. Click Allow on Windows the first time."
-    Write-Host "4. After that: Copy -> Back Tap -> Ctrl+V."
-    Write-Host ""
-    Write-Host "Universal address: http://copybridge.local:8765/copy" -ForegroundColor Cyan
-    Write-Host ""
-
-    Start-Process "http://127.0.0.1:8765/setup"
+    Write-Host "On the first copy, Windows will ask you to approve the iPhone once." -ForegroundColor Gray
 }
 finally {
     Remove-Item $tempRoot -Recurse -Force -ErrorAction SilentlyContinue

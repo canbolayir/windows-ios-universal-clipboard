@@ -1,20 +1,24 @@
 # iPhone Shortcut
 
-The public Shortcut requires **zero configuration**.
+Create a Shortcut named **Windows Clipboard**.
 
-Actions, top to bottom:
+Use exactly these actions:
 
 1. **Get Clipboard**
 2. **Get Contents of URL**
-   - URL: `http://copybridge.local:8765/copy`
-   - Method: `POST`
-   - Request Body: `JSON`
-   - `text` = Clipboard
 
-Do not add an authentication header.
+Configure **Get Contents of URL**:
 
-On first use, Windows displays an approval dialog for the iPhone's current local IP. After approval, future clipboard sends from that IP are accepted automatically.
+- URL: `http://copybridge.local:8765/copy`
+- Method: `POST`
+- Request Body: `JSON`
+- key: `text`
+- value: **Clipboard**
+
+There are no setup questions, tokens, IP addresses, or PC-specific values.
+
+On first use, approve the pairing prompt shown on Windows.
 
 Recommended trigger:
 
-**Settings → Accessibility → Touch → Back Tap → Double Tap → the Shortcut**
+**Settings → Accessibility → Touch → Back Tap → Double Tap → Windows Clipboard**
