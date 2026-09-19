@@ -1,4 +1,5 @@
 $ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
 
 $Repo = "canbolayir/windows-ios-universal-clipboard"
 $InstallDir = Join-Path $env:LOCALAPPDATA "WindowsIOSUniversalClipboard"
@@ -29,9 +30,8 @@ Write-Host "Windows iOS Universal Clipboard" -ForegroundColor Cyan
 Write-Host "Installing..." -ForegroundColor Gray
 Write-Host ""
 
-$arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
-if ($arch -ne "X64") {
-    throw "This release currently supports x64 Windows only. Detected: $arch"
+if (-not [Environment]::Is64BitOperatingSystem) {
+    throw "This release currently supports x64 Windows only."
 }
 
 function Ensure-Bonjour {
@@ -51,7 +51,8 @@ function Ensure-Bonjour {
     $winget = Get-Command winget.exe -ErrorAction SilentlyContinue
 
     if ($winget) {
-        & $winget.Source install `
+        $wingetExe = if ($winget.Path) { $winget.Path } elseif ($winget.Source) { $winget.Source } else { "winget.exe" }
+        & $wingetExe install `
             --id Apple.Bonjour `
             --exact `
             --accept-package-agreements `
