@@ -4,10 +4,3 @@ publish/
 .vs/
 *.user
 *.suo
-
-# Local development scratch files
-*-test.zip
-*-update.zip
-mdns*_test.py
-bonjour-record-test/
-native-mdns-test/

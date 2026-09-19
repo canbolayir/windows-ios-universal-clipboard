@@ -30,3 +30,4 @@ Get-NetFirewallRule -DisplayName "Windows iOS Universal Clipboard*" -ErrorAction
 Remove-Item $InstallDir -Recurse -Force -ErrorAction SilentlyContinue
 
 Write-Host "Windows iOS Universal Clipboard has been removed." -ForegroundColor Green
+Write-Host "Apple Bonjour was left installed because other Apple apps may use it."
