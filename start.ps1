@@ -9,7 +9,7 @@ if (-not (Test-Path $ExePath)) {
 
 if (Get-Process WindowsIOSUniversalClipboard -ErrorAction SilentlyContinue) {
     Write-Host "Windows iOS Universal Clipboard is already running." -ForegroundColor Green
-    exit
+    return
 }
 
 Start-Process $ExePath
@@ -20,7 +20,7 @@ for ($i = 0; $i -lt 30; $i++) {
         $health = Invoke-RestMethod "http://127.0.0.1:8765/health" -TimeoutSec 1
         if ($health.ok) {
             Write-Host "Windows iOS Universal Clipboard started." -ForegroundColor Green
-            exit
+    return
         }
     } catch {}
 }
