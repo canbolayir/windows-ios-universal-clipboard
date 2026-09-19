@@ -29,23 +29,31 @@ Shared Shortcut:
 
 **[Add Windows iOS Universal Clipboard](https://www.icloud.com/shortcuts/e870980e381e4675a27af38c91db1265)**
 
-During installation, copy any text on the iPhone and run the Shortcut once. The terminal should finish with:
+During installation, the terminal guides the iPhone setup step by step:
+
+1. open the Shortcut link on the iPhone;
+2. tap **Get Shortcut**;
+3. tap **Add Shortcut**;
+4. open the newly added Shortcut;
+5. tap the **> play** button in the bottom-right corner to run it once;
+6. when iPhone asks for permission, tap **Always Allow**.
+
+Keep the installer terminal open while doing this. The first valid Shortcut request is paired automatically, and the terminal should show:
 
 ```text
 OK - iPhone detected
 OK - device paired
-Setup complete.
 ```
 
-After that the normal workflow is:
+The installer then guides the Back Tap setup:
+
+**Settings -> Accessibility -> Touch -> Back Tap -> Double Tap -> Windows iOS Universal Clipboard**
+
+After that the normal workflow can be:
 
 ```text
-Copy on iPhone -> run Shortcut -> Ctrl+V on Windows
+Copy on iPhone -> Double Tap the back of the iPhone -> Ctrl+V on Windows
 ```
-
-For a more Mac-like gesture, assign the Shortcut to iPhone Back Tap:
-
-**Settings -> Accessibility -> Touch -> Back Tap**
 
 ## Does it start automatically?
 

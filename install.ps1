@@ -168,15 +168,35 @@ try {
     Write-Host "      OK - starts automatically with Windows" -ForegroundColor Green
     Write-Host ""
 
-    Write-Host "[2/4] Install the iPhone Shortcut" -ForegroundColor Cyan
-    Write-Host $ShortcutUrl -ForegroundColor White
+    Write-Host "[2/4] Add the iPhone Shortcut" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "On your iPhone, open this link:" -ForegroundColor White
+    Write-Host $ShortcutUrl -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Then follow these steps:"
+    Write-Host "  1. Tap 'Get Shortcut'."
+    Write-Host "  2. Tap 'Add Shortcut'."
+    Write-Host "  3. Open the newly added Shortcut."
+    Write-Host "  4. Tap the > play button in the bottom-right corner to run it once."
+    Write-Host "  5. When iPhone asks for permission, tap 'Always Allow'."
+    Write-Host ""
+    Write-Host "Keep this terminal open while you do this." -ForegroundColor DarkGray
     Write-Host ""
 
     if ([int]$health.approvedDevices -gt 0) {
         Write-Host "[3/4] Device already paired." -ForegroundColor Green
-        Write-Host "[4/4] Setup complete." -ForegroundColor Green
         Write-Host ""
-        Write-Host "Copy on iPhone -> run Shortcut -> Ctrl+V on Windows"
+        Write-Host "[4/4] Finish Back Tap setup" -ForegroundColor Cyan
+        Write-Host "On your iPhone:"
+        Write-Host "  1. Open Settings."
+        Write-Host "  2. Go to Accessibility -> Touch -> Back Tap."
+        Write-Host "  3. Choose Double Tap."
+        Write-Host "  4. Select Windows iOS Universal Clipboard."
+        Write-Host ""
+        Write-Host "Setup complete." -ForegroundColor Green
+        Write-Host ""
+        Write-Host "From now on:"
+        Write-Host "Copy text on iPhone -> Double Tap the back of the iPhone -> Ctrl+V on Windows"
         exit
     }
 
@@ -186,12 +206,13 @@ try {
     }
 
     Write-Host "[3/4] Waiting for your iPhone..." -ForegroundColor Cyan
-    Write-Host "On the iPhone:"
-    Write-Host "  1. Add the Shortcut from the link above."
-    Write-Host "  2. Copy any text."
-    Write-Host "  3. Run the Shortcut once."
     Write-Host ""
-    Write-Host "The first local device that contacts CopyBridge during this setup window will be paired automatically."
+    Write-Host "Now complete steps 3-5 above on the iPhone:"
+    Write-Host "  - Open the Shortcut."
+    Write-Host "  - Tap the > play button in the bottom-right corner."
+    Write-Host "  - Tap 'Always Allow' when permission is requested."
+    Write-Host ""
+    Write-Host "Waiting for the first Shortcut request..." -ForegroundColor DarkGray
     Write-Host ""
 
     $paired = $false
@@ -218,9 +239,18 @@ try {
         Write-Host "      OK - iPhone detected: $pairedIp" -ForegroundColor Green
         Write-Host "      OK - device paired" -ForegroundColor Green
         Write-Host ""
-        Write-Host "[4/4] Setup complete." -ForegroundColor Green
+        Write-Host "[4/4] Finish Back Tap setup" -ForegroundColor Cyan
         Write-Host ""
-        Write-Host "Copy on iPhone -> run Shortcut -> Ctrl+V on Windows"
+        Write-Host "On your iPhone:"
+        Write-Host "  1. Open Settings."
+        Write-Host "  2. Go to Accessibility -> Touch -> Back Tap."
+        Write-Host "  3. Choose Double Tap."
+        Write-Host "  4. Select Windows iOS Universal Clipboard."
+        Write-Host ""
+        Write-Host "Setup complete." -ForegroundColor Green
+        Write-Host ""
+        Write-Host "From now on:"
+        Write-Host "Copy text on iPhone -> Double Tap the back of the iPhone -> Ctrl+V on Windows"
     } else {
         Write-Warning "Pairing timed out after 5 minutes. The app is installed and will start with Windows."
         Write-Host "Run this installer again whenever you are ready to pair the iPhone:"
