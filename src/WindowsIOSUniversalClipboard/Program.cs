@@ -17,6 +17,7 @@ Directory.CreateDirectory(dataDir);
 
 var configPath = Path.Combine(dataDir, "config.json");
 var logPath = Path.Combine(dataDir, "app.log");
+var pairingPath = Path.Combine(dataDir, "pairing.enabled");
 
 var configLock = new object();
 var approvalGate = new SemaphoreSlim(1, 1);
@@ -127,6 +128,33 @@ bool IsApproved(string ip)
         return config.ApprovedDevices.Contains(ip, StringComparer.OrdinalIgnoreCase);
 }
 
+bool TryInstallerPairing(string ip)
+{
+    if (!File.Exists(pairingPath))
+        return false;
+
+    try
+    {
+        lock (configLock)
+        {
+            if (!config.ApprovedDevices.Contains(ip, StringComparer.OrdinalIgnoreCase))
+                config.ApprovedDevices.Add(ip);
+            config.LastPairedDevice = ip;
+        }
+
+        deniedUntil.TryRemove(ip, out _);
+        SaveConfig();
+        File.Delete(pairingPath);
+        Log($"Installer auto-paired {ip}");
+        return true;
+    }
+    catch (Exception ex)
+    {
+        Log($"Installer pairing failed for {ip}: {ex.Message}");
+        return false;
+    }
+}
+
 async Task<bool> PromptApprovalAsync(string ip)
 {
     var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -180,6 +208,9 @@ async Task<bool> EnsureApprovedAsync(IPAddress? remoteAddress)
     if (IsApproved(ip))
         return true;
 
+    if (TryInstallerPairing(ip))
+        return true;
+
     if (deniedUntil.TryGetValue(ip, out var until) && until > DateTimeOffset.Now)
         return false;
 
@@ -204,6 +235,7 @@ async Task<bool> EnsureApprovedAsync(IPAddress? remoteAddress)
             }
 
             deniedUntil.TryRemove(ip, out _);
+            config.LastPairedDevice = ip;
             SaveConfig();
             Log($"Approved {ip}");
         }
@@ -279,7 +311,9 @@ app.MapGet("/health", () => Results.Ok(new
     ok = true,
     hostname = AliasHost,
     discovery = discovery.State,
-    approvedDevices = config.ApprovedDevices.Count
+    approvedDevices = config.ApprovedDevices.Count,
+    pairing = File.Exists(pairingPath),
+    lastPairedDevice = config.LastPairedDevice
 }));
 
 app.MapGet("/setup", () =>
@@ -306,7 +340,7 @@ h1{line-height:1.1}.ok{font-weight:700}
 <code>http://copybridge.local:8765/copy</code>
 </div>
 <p>Add the shared iPhone Shortcut. Copy text and run it.</p>
-<p>The first time a device connects, Windows asks whether you want to allow it. Approve it once. After that: <strong>Copy → Back Tap → Ctrl+V</strong>.</p>
+<p>During installation, run the shared iPhone Shortcut once. The installer automatically pairs that first local device. After that: <strong>Copy -&gt; Back Tap -&gt; Ctrl+V</strong>.</p>
 <p><small>Designed for trusted local networks. Clipboard text travels over your LAN and is not relayed through this project.</small></p>
 </body>
 </html>
@@ -341,6 +375,7 @@ app.Run();
 sealed class AppConfig
 {
     public List<string> ApprovedDevices { get; set; } = new();
+    public string? LastPairedDevice { get; set; }
 }
 
 sealed record CopyRequest(string Text);

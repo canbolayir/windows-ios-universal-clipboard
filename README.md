@@ -2,20 +2,11 @@
 
 **Copy on iPhone. Paste on Windows.**
 
-A local-network clipboard bridge for iPhone and Windows.
+A small local-network clipboard bridge that gives iPhone + Windows a Universal Clipboard-style workflow.
 
-- No account
-- No cloud relay
-- No IP address setup
-- No hostname setup
-- No token to copy
-- One-time Windows approval
-- Works with iPhone Back Tap
-- Starts automatically with Windows
+> Unofficial project. Not affiliated with Apple or Microsoft. "Universal Clipboard" is used descriptively.
 
-> Not affiliated with Apple. "Universal Clipboard" is used descriptively.
-
-## Install on Windows
+## Install
 
 Open PowerShell and run:
 
@@ -23,84 +14,123 @@ Open PowerShell and run:
 irm https://raw.githubusercontent.com/canbolayir/windows-ios-universal-clipboard/main/install.ps1 | iex
 ```
 
-Accept the Windows UAC prompt.
+The installer does the rest:
 
-The installer:
+1. installs/configures the Windows bridge;
+2. installs Apple Bonjour when needed;
+3. configures local-subnet-only firewall access;
+4. enables automatic background startup with Windows;
+5. shows the shared iPhone Shortcut link;
+6. waits for the first Shortcut request and pairs that iPhone automatically.
 
-- installs Apple Bonjour automatically if local discovery is missing;
-- downloads the latest self-contained Windows release;
-- adds inbound firewall rules scoped to your **local subnet only** (works whether Windows labels the network Public or Private);
-- starts the clipboard bridge;
-- configures automatic startup.
+No IP address, PC hostname, or token is required.
 
-No .NET installation is required.
+Shared Shortcut:
 
-Current release: **Windows x64**.
+**[Add Windows iOS Universal Clipboard](https://www.icloud.com/shortcuts/e870980e381e4675a27af38c91db1265)**
 
-## Install on iPhone
-
-Add the shared Shortcut:
-
-**Shortcut:** [Add Windows iOS Universal Clipboard](https://www.icloud.com/shortcuts/e870980e381e4675a27af38c91db1265)
-
-The Shortcut is identical for every user. It always sends copied text to:
+During installation, copy any text on the iPhone and run the Shortcut once. The terminal should finish with:
 
 ```text
-http://copybridge.local:8765/copy
+OK - iPhone detected
+OK - device paired
+Setup complete.
 ```
 
-There is no per-user hostname, IP, or token.
-
-### First use
-
-1. Put the iPhone and Windows PC on the same trusted local network.
-2. Copy text on iPhone.
-3. Run the Shortcut.
-4. Windows asks whether to allow that local device.
-5. Click **Yes** once.
-6. Paste anywhere on Windows with `Ctrl+V`.
-
-For a macOS-like gesture, assign the Shortcut to:
-
-**Settings â†’ Accessibility â†’ Touch â†’ Back Tap**
-
-Then the normal flow is:
-
-**Copy on iPhone â†’ Back Tap â†’ Ctrl+V on Windows**
-
-## How local discovery works
-
-The Windows app publishes this local mDNS record through Apple's Bonjour DNS-SD client:
+After that the normal workflow is:
 
 ```text
-copybridge.local â†’ your active Windows LAN address
+Copy on iPhone -> run Shortcut -> Ctrl+V on Windows
 ```
 
-The alias is refreshed when the PC's active network interfaces or IP addresses change.
+For a more Mac-like gesture, assign the Shortcut to iPhone Back Tap:
 
-The iPhone Shortcut therefore never needs to know the Windows computer name or DHCP address.
+**Settings -> Accessibility -> Touch -> Back Tap**
 
-## Privacy and security
+## Does it start automatically?
 
-Clipboard text is transferred directly over the local network using HTTP. It is **not encrypted** and is not sent through this project or a cloud relay.
+Yes. The installer adds the bridge to the current Windows user's startup configuration.
 
-Requests from outside the PC's directly connected local subnets are rejected. An unknown local source IP cannot write to the Windows clipboard until the user explicitly approves it on the Windows PC.
+After Windows sign-in, `WindowsIOSUniversalClipboard.exe` starts silently in the background. No terminal window needs to remain open.
 
-Approved source IPs are stored locally in:
+## Stop it temporarily
 
-```text
-%LOCALAPPDATA%\WindowsIOSUniversalClipboard\config.json
+```powershell
+irm https://raw.githubusercontent.com/canbolayir/windows-ios-universal-clipboard/main/stop.ps1 | iex
 ```
 
-This is intentionally a trusted-LAN convenience model, not cryptographic device identity. DHCP changes may cause Windows to ask for approval again. Do not use it on hostile or untrusted networks if your clipboard may contain sensitive information.
+This stops the current background process. Automatic startup remains enabled, so it will run again after the next Windows sign-in.
 
-## Uninstall
+## Start it again
+
+```powershell
+irm https://raw.githubusercontent.com/canbolayir/windows-ios-universal-clipboard/main/start.ps1 | iex
+```
+
+## Completely uninstall it
 
 ```powershell
 irm https://raw.githubusercontent.com/canbolayir/windows-ios-universal-clipboard/main/uninstall.ps1 | iex
 ```
 
-Bonjour is intentionally left installed because iTunes or other Apple software may also use it.
+The uninstaller removes:
+
+- the app;
+- paired-device data;
+- config and logs;
+- automatic startup;
+- firewall rules;
+- old/legacy bridge tasks and files.
+
+Apple Bonjour is deliberately left installed because iTunes, iCloud, or other Apple software may use it.
+
+To remove Bonjour too:
+
+```powershell
+winget uninstall --id Apple.Bonjour
+```
+
+## How pairing works
+
+The installer creates a short-lived local pairing window while it waits in the terminal.
+
+Only while that setup window is active, the first unknown device on the PC's directly connected local subnet that sends a valid clipboard request is automatically added to the local approved-device list. The pairing window closes immediately after that first pairing.
+
+Outside installation, unknown devices are **not** silently auto-approved.
+
+Approved devices are stored locally in:
+
+```text
+%LOCALAPPDATA%\WindowsIOSUniversalClipboard\config.json
+```
+
+The installer/uninstaller removes this state when appropriate.
+
+## How discovery works
+
+The Windows app publishes:
+
+```text
+copybridge.local
+```
+
+on the local network using Bonjour/mDNS. The Shortcut always sends copied text to:
+
+```text
+http://copybridge.local:8765/copy
+```
+
+So the Shortcut does not need to know the PC's changing DHCP address or Windows computer name.
+
+## Privacy and security
+
+Clipboard text travels directly across the local network. This project has no account system and no cloud clipboard relay.
+
+The current transport is HTTP, so clipboard traffic is **not encrypted** on the LAN. The Windows firewall and the app both restrict access to directly connected local subnets. Use it on networks you trust.
+
+The pairing model is intentionally a convenience model based on local-network source addresses, not cryptographic device identity. If DHCP changes the iPhone's address, pairing may need to be repeated.
+
+Do not expose TCP port `8765` to the public internet.
 
 ## Build
 
